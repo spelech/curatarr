@@ -107,9 +107,9 @@ export default function App() {
           </div>
         ) : items.length === 0 ? (
           <div className="border border-dashed border-slate-800 rounded-2xl p-16 text-center">
-            <Film className="w-12 h-12 text-slate-700 mx-auto mb-3" />
+            <Film className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <h3 className="text-sm font-semibold text-slate-300">No Candidates Found</h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
               No media items matched the active category or filter. Your library is clean, or you can trigger a "Sync Now" to update.
             </p>
           </div>

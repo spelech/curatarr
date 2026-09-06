@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
   };
 
   return (
-    <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur px-6 py-3.5 flex items-center justify-between sticky top-0 z-20">
+    <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20">
       <div className="flex items-center gap-3">
         <div className="p-2 bg-sky-500/10 border border-sky-500/20 rounded-lg text-sky-400">
           <Layers className="w-5 h-5" />
@@ -61,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
       )}
 
       {/* Right controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           onClick={onOpenAudit}
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition"
@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
         <button
           onClick={() => triggerSync()}
           disabled={isSyncing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white shadow-sm transition"
+          className="flex items-center gap-1.5 px-3 py-1.5 min-h-[28px] text-xs font-bold rounded-md bg-sky-400 hover:bg-sky-300 disabled:opacity-50 text-slate-950 shadow-sm transition"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
           {isSyncing ? 'Syncing...' : 'Sync Now'}

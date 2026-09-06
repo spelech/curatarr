@@ -28,25 +28,25 @@ export const ControlBar: React.FC = () => {
   return (
     <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
       {/* Left side: Search & Multi-User filter */}
-      <div className="flex items-center gap-2.5 flex-1 min-w-[280px]">
-        <div className="relative flex-1 max-w-xs">
+      <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search titles..."
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 text-xs"
+            className="w-full pl-8 pr-3 py-1.5 min-h-[28px] bg-slate-950 border border-slate-800 rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 text-xs"
           />
         </div>
 
         {/* Multi-User Profile Dropdown */}
-        <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-md px-2.5 py-1 text-slate-300">
+        <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-md px-2.5 py-0.5 text-slate-300">
           <User className="w-3.5 h-3.5 text-slate-400" />
           <select
             value={selectedUserId || ''}
             onChange={(e) => setSelectedUserId(e.target.value || null)}
-            className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer"
+            className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer py-1.5 min-h-[28px]"
           >
             <option value="" className="bg-slate-900 text-slate-200">
               All Users (Combined)
@@ -61,12 +61,12 @@ export const ControlBar: React.FC = () => {
       </div>
 
       {/* Right side: Media Type toggle, Sort, View mode & Select All */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Media type buttons */}
         <div className="flex items-center bg-slate-950 border border-slate-800 rounded-md p-0.5">
           <button
             onClick={() => setSelectedMediaType('all')}
-            className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+            className={`px-2.5 py-1.5 min-h-[28px] rounded text-xs font-medium transition ${
               selectedMediaType === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -74,7 +74,7 @@ export const ControlBar: React.FC = () => {
           </button>
           <button
             onClick={() => setSelectedMediaType('movie')}
-            className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition ${
+            className={`px-2.5 py-1.5 min-h-[28px] rounded text-xs font-medium flex items-center gap-1 transition ${
               selectedMediaType === 'movie' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -83,7 +83,7 @@ export const ControlBar: React.FC = () => {
           </button>
           <button
             onClick={() => setSelectedMediaType('series')}
-            className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 transition ${
+            className={`px-2.5 py-1.5 min-h-[28px] rounded text-xs font-medium flex items-center gap-1 transition ${
               selectedMediaType === 'series' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -93,11 +93,11 @@ export const ControlBar: React.FC = () => {
         </div>
 
         {/* Sort selector */}
-        <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-md px-2 py-1">
+        <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-md px-2 py-0.5">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer"
+            className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer py-1.5 min-h-[28px]"
           >
             <option value="size" className="bg-slate-900 text-slate-200">Sort by Size</option>
             <option value="added" className="bg-slate-900 text-slate-200">Sort by Date Added</option>
@@ -106,9 +106,9 @@ export const ControlBar: React.FC = () => {
           <button
             onClick={toggleSortDesc}
             title={sortDesc ? 'Descending' : 'Ascending'}
-            className="text-slate-400 hover:text-slate-200 p-0.5"
+            className="text-slate-400 hover:text-slate-200 min-w-[28px] min-h-[28px] flex items-center justify-center p-1 rounded"
           >
-            <ArrowUpDown className="w-3 h-3" />
+            <ArrowUpDown className="w-3.5 h-3.5" />
           </button>
         </div>
 
