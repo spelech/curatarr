@@ -13,8 +13,8 @@ COPY curatarr.slnx Directory.Build.props ./
 COPY src/Curatarr.Core/ src/Curatarr.Core/
 COPY src/Curatarr.Infrastructure/ src/Curatarr.Infrastructure/
 COPY src/Curatarr.Api/ src/Curatarr.Api/
-RUN dotnet restore curatarr.slnx
-RUN dotnet publish src/Curatarr.Api/Curatarr.Api.csproj -c Release -o /app/publish
+RUN dotnet restore src/Curatarr.Api/Curatarr.Api.csproj
+RUN dotnet publish src/Curatarr.Api/Curatarr.Api.csproj -c Release --no-restore -o /app/publish
 
 # Copy built frontend into published wwwroot
 COPY --from=frontend-builder /app/Curatarr.Api/wwwroot /app/publish/wwwroot
