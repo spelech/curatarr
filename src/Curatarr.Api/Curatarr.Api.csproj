@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Curatarr.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Curatarr.Core\Curatarr.Core.csproj" />
+    <ProjectReference Include="..\Curatarr.Infrastructure\Curatarr.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

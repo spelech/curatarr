@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Curatarr.Core/Curatarr.Core.csproj" />
+    <Project Path="src/Curatarr.Infrastructure/Curatarr.Infrastructure.csproj" />
+    <Project Path="src/Curatarr.Api/Curatarr.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Curatarr.Tests/Curatarr.Tests.csproj" />
+  </Folder>
+</Solution>
