@@ -1,0 +1,27 @@
+networks:
+  net_media:
+    external: true
+
+services:
+  curatarr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: curatarr:latest
+    container_name: curatarr
+    restart: unless-stopped
+    ports:
+      - 8045:8080
+    environment:
+      - TZ=America/Chicago
+      - CURATARR__DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
+    networks:
+      - net_media
+    labels:
+      portal.curatarr.name: "Curatarr"
+      portal.curatarr.description: "Intelligent media curation & library pruning for Sonarr, Radarr, Tautulli, and Plex."
+      portal.curatarr.category: "Media Management"
+      portal.curatarr.icon: "fa-solid fa-broom"
+      portal.curatarr.color: "#0ea5e9"

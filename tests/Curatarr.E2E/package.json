@@ -1,0 +1,13 @@
+{
+  "name": "curatarr-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@spelech/playwright-layout-inspector": "^1.0.0"
+  }
+}
