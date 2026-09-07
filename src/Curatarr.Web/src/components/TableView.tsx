@@ -40,6 +40,19 @@ export const TableView: React.FC<TableViewProps> = ({
     return `${Math.floor(daysAgo / 365)}y ago`;
   };
 
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      return new Date(dateStr).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="border border-slate-800 rounded-xl overflow-x-auto bg-slate-900/40">
       <table className="w-full text-left border-collapse text-xs">
@@ -52,6 +65,7 @@ export const TableView: React.FC<TableViewProps> = ({
             <th className="p-3">Size</th>
             <th className="p-3">Plays</th>
             <th className="p-3">Last Watched</th>
+            <th className="p-3">Added</th>
             <th className="p-3 text-right">Actions</th>
           </tr>
         </thead>
@@ -78,10 +92,24 @@ export const TableView: React.FC<TableViewProps> = ({
                 <td className="p-3 font-semibold text-white">
                   <div
                     onClick={() => onOpenDetail(item)}
-                    className="flex items-center gap-2 cursor-pointer hover:text-sky-300 transition"
+                    className="flex items-center gap-2.5 cursor-pointer hover:text-sky-300 transition"
                   >
-                    <span>{item.title}</span>
-                    {item.year && <span className="text-slate-500 font-normal">({item.year})</span>}
+                    {item.posterUrl ? (
+                      <img
+                        src={item.posterUrl}
+                        alt={item.title}
+                        className="w-7 h-10 object-cover rounded shadow-sm border border-slate-800 shrink-0"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-7 h-10 bg-slate-800 rounded flex items-center justify-center shrink-0 text-slate-500 border border-slate-800">
+                        {item.mediaType === 1 ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
+                      </div>
+                    )}
+                    <div>
+                      <div className="line-clamp-1">{item.title}</div>
+                      {item.year && <span className="text-slate-500 font-normal text-[11px] font-mono">({item.year})</span>}
+                    </div>
                   </div>
                 </td>
                 <td className="p-3 text-slate-400">
@@ -117,6 +145,7 @@ export const TableView: React.FC<TableViewProps> = ({
                 <td className="p-3 font-mono text-slate-200">{formatSize(item.totalSizeBytes)}</td>
                 <td className="p-3 text-slate-300 font-mono">{totalPlays}</td>
                 <td className="p-3 text-slate-400">{getLastPlayed(item)}</td>
+                <td className="p-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">{formatDate(item.addedAt)}</td>
                 <td className="p-3 text-right">
                   <div className="flex items-center justify-end gap-1.5">
                     <button

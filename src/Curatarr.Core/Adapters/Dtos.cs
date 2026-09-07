@@ -16,7 +16,9 @@ public record SonarrSeriesDto(
     int TotalEpisodeCount,
     int? QualityProfileId,
     IReadOnlyList<SonarrSeasonDto> Seasons,
-    string? Resolution = null
+    string? Resolution = null,
+    DateTime? AddedAt = null,
+    string? PosterUrl = null
 );
 
 public record SonarrSeasonDto(
@@ -47,7 +49,9 @@ public record RadarrMovieDto(
     string? Path,
     long SizeOnDisk,
     int? QualityProfileId,
-    string? Resolution = null
+    string? Resolution = null,
+    DateTime? AddedAt = null,
+    string? PosterUrl = null
 );
 
 public record TautulliUserDto(

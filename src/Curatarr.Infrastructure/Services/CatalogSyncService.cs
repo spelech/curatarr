@@ -86,9 +86,16 @@ public class CatalogSyncService : ICatalogSyncService
                             Year = s.Year,
                             TvdbId = s.TvdbId?.ToString(),
                             ImdbId = s.ImdbId,
+                            PosterUrl = s.PosterUrl,
+                            AddedAt = s.AddedAt,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         });
+
+                        if (!item.AddedAt.HasValue && s.AddedAt.HasValue) item.AddedAt = s.AddedAt;
+                        else if (s.AddedAt.HasValue && item.AddedAt.HasValue && s.AddedAt.Value < item.AddedAt.Value) item.AddedAt = s.AddedAt;
+
+                        if (string.IsNullOrEmpty(item.PosterUrl) && !string.IsNullOrEmpty(s.PosterUrl)) item.PosterUrl = s.PosterUrl;
 
                         // Add instance (avoid duplicate instance from same connection/externalId)
                         var instanceId = ComputeDeterministicId($"inst:{conn.Id}:{s.Id}");
@@ -180,9 +187,16 @@ public class CatalogSyncService : ICatalogSyncService
                             Year = m.Year,
                             TmdbId = m.TmdbId?.ToString(),
                             ImdbId = m.ImdbId,
+                            PosterUrl = m.PosterUrl,
+                            AddedAt = m.AddedAt,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         });
+
+                        if (!item.AddedAt.HasValue && m.AddedAt.HasValue) item.AddedAt = m.AddedAt;
+                        else if (m.AddedAt.HasValue && item.AddedAt.HasValue && m.AddedAt.Value < item.AddedAt.Value) item.AddedAt = m.AddedAt;
+
+                        if (string.IsNullOrEmpty(item.PosterUrl) && !string.IsNullOrEmpty(m.PosterUrl)) item.PosterUrl = m.PosterUrl;
 
                         var instanceId = ComputeDeterministicId($"inst:{conn.Id}:{m.Id}");
                         if (!item.Instances.Any(i => i.Id == instanceId))
@@ -498,8 +512,10 @@ public class CatalogSyncService : ICatalogSyncService
     private static string NormalizeTitle(string? title)
     {
         if (string.IsNullOrWhiteSpace(title)) return string.Empty;
-        // Strip non-alphanumeric characters for fuzzy resilient title matching
-        return Regex.Replace(title, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
+        // Strip parenthesized 4-digit years like (2026), (2001) for resilient title matching
+        var stripped = Regex.Replace(title, @"\s*\(\d{4}\)", "").Trim();
+        // Strip non-alphanumeric characters
+        return Regex.Replace(stripped, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
     }
 
     private static string ComputeDeterministicId(string input)

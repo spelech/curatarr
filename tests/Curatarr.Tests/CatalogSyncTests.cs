@@ -498,4 +498,89 @@ public class CatalogSyncTests : IDisposable
         ryan.WatchStats[0].Username.Should().Be("loudrockmusic");
         ryan.WatchStats[0].PlayCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task SyncAsync_ShouldPopulateAddedAtAndPosterUrl_FromSonarrAndRadarr()
+    {
+        await _initializer.InitializeAsync();
+
+        var sonarrConn = new ServiceConnection
+        {
+            Id = "conn-sonarr",
+            ConnectionType = ConnectionType.Sonarr,
+            Name = "Sonarr",
+            BaseUrl = "http://sonarr:8989",
+            ApiKey = "key",
+            IsEnabled = true
+        };
+        var radarrConn = new ServiceConnection
+        {
+            Id = "conn-radarr",
+            ConnectionType = ConnectionType.Radarr,
+            Name = "Radarr",
+            BaseUrl = "http://radarr:7878",
+            ApiKey = "key",
+            IsEnabled = true
+        };
+        await _connRepo.UpsertAsync(sonarrConn);
+        await _connRepo.UpsertAsync(radarrConn);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        var addedDate = new DateTime(2023, 5, 10, 12, 0, 0, DateTimeKind.Utc);
+        var seriesDto = new SonarrSeriesDto(
+            Id: 1,
+            Title: "Severance",
+            SortTitle: "Severance",
+            TvdbId: 371980,
+            ImdbId: "tt11280740",
+            Year: 2022,
+            Monitored: true,
+            Path: "/tv/Severance",
+            SizeOnDisk: 10_000_000_000,
+            EpisodeFileCount: 9,
+            TotalEpisodeCount: 9,
+            QualityProfileId: 1,
+            Seasons: [],
+            AddedAt: addedDate,
+            PosterUrl: "https://artworks.thetvdb.com/banners/posters/severance.jpg"
+        );
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SonarrSeriesDto>>([seriesDto]));
+
+        var movieDto = new RadarrMovieDto(
+            Id: 10,
+            Title: "Dune: Part Two",
+            SortTitle: "Dune: Part Two",
+            TmdbId: 693134,
+            ImdbId: "tt15239678",
+            Year: 2024,
+            HasFile: true,
+            Monitored: true,
+            Path: "/movies/Dune 2",
+            SizeOnDisk: 20_000_000_000,
+            QualityProfileId: 1,
+            AddedAt: addedDate.AddDays(10),
+            PosterUrl: "https://image.tmdb.org/t/p/w500/dune2.jpg"
+        );
+        radarrClient.GetMoviesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<RadarrMovieDto>>([movieDto]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync(fullSync: true);
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10, SortBy = "added", SortDescending = false });
+        items.Should().HaveCount(2);
+
+        var series = items.First(i => i.MediaType == MediaType.Series);
+        series.AddedAt.Should().Be(addedDate);
+        series.PosterUrl.Should().Be("https://artworks.thetvdb.com/banners/posters/severance.jpg");
+
+        var movie = items.First(i => i.MediaType == MediaType.Movie);
+        movie.AddedAt.Should().Be(addedDate.AddDays(10));
+        movie.PosterUrl.Should().Be("https://image.tmdb.org/t/p/w500/dune2.jpg");
+    }
 }

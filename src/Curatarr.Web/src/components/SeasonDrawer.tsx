@@ -33,7 +33,7 @@ export const SeasonDrawer: React.FC<SeasonDrawerProps> = ({ seasons, onPruneSeas
                 {s.seasonNumber === 0 ? 'Specials' : `Season ${s.seasonNumber}`}
               </span>
               <span className="text-[11px] text-slate-500">
-                {s.episodeFileCount} / {s.episodeCount} eps
+                {s.episodeFileCount} / {s.episodeCount} files on disk
               </span>
             </div>
 
