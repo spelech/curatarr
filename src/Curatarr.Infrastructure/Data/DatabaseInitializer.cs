@@ -112,12 +112,32 @@ public class DatabaseInitializer
         CREATE INDEX IF NOT EXISTS idx_media_size ON media_items(total_size_bytes);
         CREATE INDEX IF NOT EXISTS idx_media_ids ON media_items(tmdb_id, tvdb_id, imdb_id);
         CREATE INDEX IF NOT EXISTS idx_instances_item ON media_instances(media_item_id);
-        CREATE INDEX IF NOT EXISTS idx_seasons_item ON seasons(media_item_id, season_number);
         CREATE INDEX IF NOT EXISTS idx_watch_item ON watch_stats(media_item_id);
         CREATE INDEX IF NOT EXISTS idx_watch_user ON watch_stats(user_id);
         CREATE INDEX IF NOT EXISTS idx_audit_date ON audit_logs(executed_at);
         ";
 
         await connection.ExecuteAsync(schemaSql);
+
+        // Deduplicate any historical orphaned duplicates before applying UNIQUE constraints
+        await connection.ExecuteAsync(@"
+            DELETE FROM media_instances WHERE rowid NOT IN (
+                SELECT MIN(rowid) FROM media_instances GROUP BY connection_id, external_id
+            );
+            DELETE FROM seasons WHERE rowid NOT IN (
+                SELECT MIN(rowid) FROM seasons GROUP BY media_item_id, season_number
+            );
+            DELETE FROM watch_stats WHERE rowid NOT IN (
+                SELECT MIN(rowid) FROM watch_stats GROUP BY media_item_id, user_id, IFNULL(season_number, 0)
+            );
+        ");
+
+        const string uniqueIndexesSql = @"
+        DROP INDEX IF EXISTS idx_seasons_item;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_seasons_item ON seasons(media_item_id, season_number);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_inst_conn_ext ON media_instances(connection_id, external_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_watch_item_user_season ON watch_stats(media_item_id, user_id, IFNULL(season_number, 0));
+        ";
+        await connection.ExecuteAsync(uniqueIndexesSql);
     }
 }
