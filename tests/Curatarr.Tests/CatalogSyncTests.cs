@@ -125,5 +125,8 @@ public class CatalogSyncTests : IDisposable
         dark.TotalSizeBytes.Should().Be(50_000_000_000); // 10GB HD + 40GB 4K
         dark.Instances.Should().HaveCount(2);
         dark.Instances.Select(i => i.ConnectionId).Should().Contain(["sonarr-hd", "sonarr-4k"]);
+        dark.WatchStats.Should().ContainSingle();
+        dark.WatchStats[0].Username.Should().Be("steve");
+        dark.WatchStats[0].PlayCount.Should().Be(1);
     }
 }
