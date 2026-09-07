@@ -15,7 +15,8 @@ public record SonarrSeriesDto(
     int EpisodeFileCount,
     int TotalEpisodeCount,
     int? QualityProfileId,
-    IReadOnlyList<SonarrSeasonDto> Seasons
+    IReadOnlyList<SonarrSeasonDto> Seasons,
+    string? Resolution = null
 );
 
 public record SonarrSeasonDto(
@@ -45,7 +46,8 @@ public record RadarrMovieDto(
     bool Monitored,
     string? Path,
     long SizeOnDisk,
-    int? QualityProfileId
+    int? QualityProfileId,
+    string? Resolution = null
 );
 
 public record TautulliUserDto(
@@ -63,7 +65,9 @@ public record TautulliHistoryItemDto(
     string UserId,
     string Username,
     int? SeasonNumber,
-    DateTime Date
+    DateTime Date,
+    string? MediaType = null,
+    int? Year = null
 );
 
 public record PlexSectionDto(
@@ -78,7 +82,9 @@ public record PlexMetadataItemDto(
     string Title,
     string Type,
     string? Guid,
-    int? Year
+    int? Year,
+    int ViewCount = 0,
+    DateTime? LastViewedAt = null
 );
 
 public record OverseerrRequestDto(

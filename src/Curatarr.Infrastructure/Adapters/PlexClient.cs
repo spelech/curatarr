@@ -73,7 +73,20 @@ public class PlexClient : IPlexClient
                 var type = el.GetProperty("type").GetString() ?? "";
                 var guid = el.TryGetProperty("guid", out var g) ? g.GetString() : null;
                 var year = el.TryGetProperty("year", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : (int?)null;
-                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year));
+
+                int viewCount = 0;
+                if (el.TryGetProperty("viewCount", out var vc) && vc.ValueKind == JsonValueKind.Number)
+                {
+                    viewCount = vc.GetInt32();
+                }
+
+                DateTime? lastViewedAt = null;
+                if (el.TryGetProperty("lastViewedAt", out var lva) && lva.ValueKind == JsonValueKind.Number)
+                {
+                    lastViewedAt = DateTimeOffset.FromUnixTimeSeconds(lva.GetInt64()).UtcDateTime;
+                }
+
+                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt));
             }
         }
 

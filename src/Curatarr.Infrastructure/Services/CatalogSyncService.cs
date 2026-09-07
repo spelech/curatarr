@@ -64,6 +64,15 @@ public class CatalogSyncService : ICatalogSyncService
                 try
                 {
                     var seriesList = await _sonarrClient.GetSeriesAsync(conn, ct);
+                    HashSet<int> cutoffIds;
+                    try
+                    {
+                        cutoffIds = (await _sonarrClient.GetCutoffUnmetSeriesIdsAsync(conn, ct)) ?? [];
+                    }
+                    catch
+                    {
+                        cutoffIds = [];
+                    }
                     foreach (var s in seriesList)
                     {
                         var key = s.TvdbId.HasValue ? $"tvdb:{s.TvdbId}" : (s.ImdbId != null ? $"imdb:{s.ImdbId}" : $"title:{s.Title.ToLowerInvariant()}:{s.Year}");
@@ -92,11 +101,12 @@ public class CatalogSyncService : ICatalogSyncService
                                 ConnectionId = conn.Id,
                                 ExternalId = s.Id,
                                 QualityProfileName = conn.TierTag ?? "Default",
-                                CutoffUnmet = false,
+                                CutoffUnmet = cutoffIds.Contains(s.Id),
                                 IsMonitored = s.Monitored,
                                 DiskPath = s.Path,
                                 SizeBytes = s.SizeOnDisk,
                                 HasFile = s.EpisodeFileCount > 0,
+                                Resolution = s.Resolution,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             });
@@ -148,6 +158,15 @@ public class CatalogSyncService : ICatalogSyncService
                 try
                 {
                     var movies = await _radarrClient.GetMoviesAsync(conn, ct);
+                    HashSet<int> cutoffIds;
+                    try
+                    {
+                        cutoffIds = (await _radarrClient.GetCutoffUnmetMovieIdsAsync(conn, ct)) ?? [];
+                    }
+                    catch
+                    {
+                        cutoffIds = [];
+                    }
                     foreach (var m in movies)
                     {
                         var key = m.TmdbId.HasValue ? $"tmdb:{m.TmdbId}" : (m.ImdbId != null ? $"imdb:{m.ImdbId}" : $"title:{m.Title.ToLowerInvariant()}:{m.Year}");
@@ -175,11 +194,12 @@ public class CatalogSyncService : ICatalogSyncService
                                 ConnectionId = conn.Id,
                                 ExternalId = m.Id,
                                 QualityProfileName = conn.TierTag ?? "Default",
-                                CutoffUnmet = false,
+                                CutoffUnmet = cutoffIds.Contains(m.Id),
                                 IsMonitored = m.Monitored,
                                 DiskPath = m.Path,
                                 SizeBytes = m.SizeOnDisk,
                                 HasFile = m.HasFile,
+                                Resolution = m.Resolution,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             });
@@ -203,16 +223,21 @@ public class CatalogSyncService : ICatalogSyncService
                 item.TotalSizeBytes = item.Instances.Sum(i => i.SizeBytes);
             }
 
-            // Build normalized lookup maps for fast title matching
-            var normalizedTitleMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
+            // Build typed normalized lookup maps for fast title matching
+            var exactItemMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
+            var typeTitleItemMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
             var plexRatingKeyMap = new Dictionary<int, MediaItem>();
 
             foreach (var item in itemMap.Values)
             {
                 var norm = NormalizeTitle(item.Title);
-                if (!string.IsNullOrEmpty(norm) && !normalizedTitleMap.ContainsKey(norm))
+                if (!string.IsNullOrEmpty(norm))
                 {
-                    normalizedTitleMap[norm] = item;
+                    if (item.Year.HasValue)
+                    {
+                        exactItemMap[$"{(int)item.MediaType}:{norm}:{item.Year.Value}"] = item;
+                    }
+                    typeTitleItemMap.TryAdd($"{(int)item.MediaType}:{norm}", item);
                 }
 
                 if (item.PlexRatingKey.HasValue)
@@ -231,13 +256,51 @@ public class CatalogSyncService : ICatalogSyncService
                     foreach (var section in sections)
                     {
                         var plexItems = await _plexClient.GetSectionItemsAsync(conn, section.Key, ct);
+                        var isShowSection = string.Equals(section.Type, "show", StringComparison.OrdinalIgnoreCase);
+                        var defaultType = isShowSection ? MediaType.Series : MediaType.Movie;
+
                         foreach (var pi in plexItems)
                         {
                             var norm = NormalizeTitle(pi.Title);
-                            if (normalizedTitleMap.TryGetValue(norm, out var matchedItem))
+                            if (string.IsNullOrEmpty(norm)) continue;
+
+                            var targetType = string.Equals(pi.Type, "show", StringComparison.OrdinalIgnoreCase)
+                                ? MediaType.Series
+                                : (string.Equals(pi.Type, "movie", StringComparison.OrdinalIgnoreCase) ? MediaType.Movie : defaultType);
+
+                            MediaItem? matchedItem = null;
+                            if (pi.Year.HasValue && exactItemMap.TryGetValue($"{(int)targetType}:{norm}:{pi.Year.Value}", out var exact))
+                            {
+                                matchedItem = exact;
+                            }
+                            else if (typeTitleItemMap.TryGetValue($"{(int)targetType}:{norm}", out var byType))
+                            {
+                                matchedItem = byType;
+                            }
+
+                            if (matchedItem != null)
                             {
                                 matchedItem.PlexRatingKey = pi.RatingKey;
                                 plexRatingKeyMap[pi.RatingKey] = matchedItem;
+
+                                if (pi.ViewCount > 0)
+                                {
+                                    var stat = matchedItem.WatchStats.FirstOrDefault(ws => ws.UserId == "plex-server");
+                                    if (stat == null)
+                                    {
+                                        matchedItem.WatchStats.Add(new WatchStat
+                                        {
+                                            Id = ComputeDeterministicId($"watch:{matchedItem.Id}:plex-server:0"),
+                                            MediaItemId = matchedItem.Id,
+                                            SeasonNumber = null,
+                                            UserId = "plex-server",
+                                            Username = "Plex Activity",
+                                            PlayCount = pi.ViewCount,
+                                            LastPlayedAt = pi.LastViewedAt,
+                                            UpdatedAt = DateTime.UtcNow
+                                        });
+                                    }
+                                }
                             }
                         }
                     }
@@ -262,30 +325,45 @@ public class CatalogSyncService : ICatalogSyncService
                     var history = await _tautulliClient.GetHistoryAsync(conn, length: 10000, ct: ct);
                     foreach (var h in history)
                     {
-                        var showOrMovieTitle = h.GrandparentTitle ?? h.Title;
+                        var isEpisode = string.Equals(h.MediaType, "episode", StringComparison.OrdinalIgnoreCase)
+                            || !string.IsNullOrEmpty(h.GrandparentTitle)
+                            || h.SeasonNumber.HasValue;
+
+                        var expectedType = isEpisode ? MediaType.Series : MediaType.Movie;
+                        var showOrMovieTitle = isEpisode ? (h.GrandparentTitle ?? h.Title) : h.Title;
                         if (string.IsNullOrEmpty(showOrMovieTitle)) continue;
 
                         MediaItem? matchedItem = null;
 
-                        // 1. Try match by rating key (movie, show, or grandparent rating key)
-                        if (h.RatingKey.HasValue && plexRatingKeyMap.TryGetValue(h.RatingKey.Value, out var byRk))
-                        {
-                            matchedItem = byRk;
-                        }
-                        else if (!string.IsNullOrEmpty(h.GrandparentRatingKey) && int.TryParse(h.GrandparentRatingKey, out var gprkVal) && plexRatingKeyMap.TryGetValue(gprkVal, out var byGprk))
+                        // 1. Try match by rating key (grandparent rating key for episodes, or direct rating key)
+                        if (isEpisode && !string.IsNullOrEmpty(h.GrandparentRatingKey) && int.TryParse(h.GrandparentRatingKey, out var gprkVal) && plexRatingKeyMap.TryGetValue(gprkVal, out var byGprk))
                         {
                             matchedItem = byGprk;
                         }
+                        else if (h.RatingKey.HasValue && plexRatingKeyMap.TryGetValue(h.RatingKey.Value, out var byRk))
+                        {
+                            matchedItem = byRk;
+                        }
 
-                        // 2. Fallback to normalized title match
+                        // 2. Fallback to typed title match
                         if (matchedItem == null)
                         {
                             var norm = NormalizeTitle(showOrMovieTitle);
-                            normalizedTitleMap.TryGetValue(norm, out matchedItem);
+                            if (h.Year.HasValue && exactItemMap.TryGetValue($"{(int)expectedType}:{norm}:{h.Year.Value}", out var exact))
+                            {
+                                matchedItem = exact;
+                            }
+                            else if (typeTitleItemMap.TryGetValue($"{(int)expectedType}:{norm}", out var byType))
+                            {
+                                matchedItem = byType;
+                            }
                         }
 
                         if (matchedItem != null)
                         {
+                            // Remove generic plex-server baseline if granular Tautulli stats are present
+                            matchedItem.WatchStats.RemoveAll(ws => ws.UserId == "plex-server");
+
                             var stat = matchedItem.WatchStats.FirstOrDefault(ws => ws.UserId == h.UserId && ws.SeasonNumber == h.SeasonNumber);
                             if (stat == null)
                             {

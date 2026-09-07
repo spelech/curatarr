@@ -36,6 +36,7 @@ public class MediaRepository : IMediaRepository
                    external_id as ExternalId, quality_profile_name as QualityProfileName, 
                    cutoff_unmet as CutoffUnmet, is_monitored as IsMonitored, 
                    disk_path as DiskPath, size_bytes as SizeBytes, has_file as HasFile, 
+                   resolution as Resolution,
                    created_at as CreatedAt, updated_at as UpdatedAt
             FROM media_instances
             WHERE media_item_id = @Id;";
@@ -136,11 +137,22 @@ public class MediaRepository : IMediaRepository
                     break;
                 case SmartCategoryIds.Abandoned:
                     whereClauses.Add("m.is_protected = 0 AND m.media_type = 1"); // Series
-                    whereClauses.Add("EXISTS (SELECT 1 FROM watch_stats ws WHERE ws.media_item_id = m.id AND ws.season_number = 1 AND ws.play_count > 0)");
+                    whereClauses.Add("EXISTS (SELECT 1 FROM watch_stats ws WHERE ws.media_item_id = m.id AND ws.play_count > 0)");
                     whereClauses.Add("(SELECT MAX(ws.last_played_at) FROM watch_stats ws WHERE ws.media_item_id = m.id) < @AbandonedDate");
                     parameters.Add("AbandonedDate", DateTime.UtcNow.AddDays(-90).ToString("o"));
                     break;
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.ResolutionFilter))
+        {
+            whereClauses.Add("EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.resolution = @Resolution)");
+            parameters.Add("Resolution", options.ResolutionFilter);
+        }
+
+        if (options.CutoffUnmetFilter == true)
+        {
+            whereClauses.Add("EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.cutoff_unmet = 1)");
         }
 
         var whereSql = whereClauses.Count > 0 ? "WHERE " + string.Join(" AND ", whereClauses) : "";
@@ -177,6 +189,7 @@ public class MediaRepository : IMediaRepository
                    external_id as ExternalId, quality_profile_name as QualityProfileName, 
                    cutoff_unmet as CutoffUnmet, is_monitored as IsMonitored, 
                    disk_path as DiskPath, size_bytes as SizeBytes, has_file as HasFile, 
+                   resolution as Resolution,
                    created_at as CreatedAt, updated_at as UpdatedAt
             FROM media_instances
             WHERE media_item_id IN @Ids;";
@@ -237,8 +250,8 @@ public class MediaRepository : IMediaRepository
                 updated_at = excluded.updated_at;";
 
         const string sqlInstance = @"
-            INSERT INTO media_instances (id, media_item_id, connection_id, external_id, quality_profile_name, cutoff_unmet, is_monitored, disk_path, size_bytes, has_file, created_at, updated_at)
-            VALUES (@Id, @MediaItemId, @ConnectionId, @ExternalId, @QualityProfileName, @CutoffUnmet, @IsMonitored, @DiskPath, @SizeBytes, @HasFile, @CreatedAt, @UpdatedAt)
+            INSERT INTO media_instances (id, media_item_id, connection_id, external_id, quality_profile_name, cutoff_unmet, is_monitored, disk_path, size_bytes, has_file, resolution, created_at, updated_at)
+            VALUES (@Id, @MediaItemId, @ConnectionId, @ExternalId, @QualityProfileName, @CutoffUnmet, @IsMonitored, @DiskPath, @SizeBytes, @HasFile, @Resolution, @CreatedAt, @UpdatedAt)
             ON CONFLICT(id) DO UPDATE SET
                 quality_profile_name = excluded.quality_profile_name,
                 cutoff_unmet = excluded.cutoff_unmet,
@@ -246,6 +259,7 @@ public class MediaRepository : IMediaRepository
                 disk_path = excluded.disk_path,
                 size_bytes = excluded.size_bytes,
                 has_file = excluded.has_file,
+                resolution = excluded.resolution,
                 updated_at = excluded.updated_at;";
 
         const string sqlSeason = @"
@@ -303,6 +317,7 @@ public class MediaRepository : IMediaRepository
                     inst.DiskPath,
                     inst.SizeBytes,
                     inst.HasFile,
+                    inst.Resolution,
                     CreatedAt = inst.CreatedAt.ToString("o"),
                     UpdatedAt = inst.UpdatedAt.ToString("o")
                 }, transaction: trans, cancellationToken: ct));

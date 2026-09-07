@@ -109,6 +109,86 @@ public class RuleEngineAndPruneTests : IDisposable
     }
 
     [Fact]
+    public async Task SmartCategoryEngine_ShouldIdentifyAbandonedSeries_WhenAnyEpisodeWatchedAndNotPlayedIn90Days()
+    {
+        await _initializer.InitializeAsync();
+
+        // Show 1: Watched season 3 episode 120 days ago (abandoned)
+        var showAbandoned = new MediaItem
+        {
+            Id = "show-abandoned",
+            MediaType = MediaType.Series,
+            Title = "Abandoned Show",
+            SortTitle = "Abandoned Show",
+            TotalSizeBytes = 30_000_000_000,
+            IsProtected = false,
+            WatchStats =
+            [
+                new WatchStat
+                {
+                    Id = "ws-abandoned",
+                    MediaItemId = "show-abandoned",
+                    SeasonNumber = 3,
+                    UserId = "user-1",
+                    Username = "steve",
+                    PlayCount = 2,
+                    LastPlayedAt = DateTime.UtcNow.AddDays(-120)
+                }
+            ]
+        };
+
+        // Show 2: Watched 10 days ago (active, not abandoned)
+        var showActive = new MediaItem
+        {
+            Id = "show-active",
+            MediaType = MediaType.Series,
+            Title = "Active Show",
+            SortTitle = "Active Show",
+            TotalSizeBytes = 20_000_000_000,
+            IsProtected = false,
+            WatchStats =
+            [
+                new WatchStat
+                {
+                    Id = "ws-active",
+                    MediaItemId = "show-active",
+                    SeasonNumber = 1,
+                    UserId = "user-1",
+                    Username = "steve",
+                    PlayCount = 5,
+                    LastPlayedAt = DateTime.UtcNow.AddDays(-10)
+                }
+            ]
+        };
+
+        // Show 3: Never watched (never watched category, not abandoned)
+        var showNever = new MediaItem
+        {
+            Id = "show-never",
+            MediaType = MediaType.Series,
+            Title = "Never Show",
+            SortTitle = "Never Show",
+            TotalSizeBytes = 15_000_000_000,
+            IsProtected = false
+        };
+
+        await _mediaRepo.UpsertBatchAsync([showAbandoned, showActive, showNever]);
+
+        ISmartCategoryEngine engine = new SmartCategoryEngine(_factory);
+        var summaries = await engine.GetSummariesAsync(userIdFilter: null);
+
+        var abandonedCat = summaries.FirstOrDefault(s => s.CategoryId == SmartCategoryIds.Abandoned);
+        abandonedCat.Should().NotBeNull();
+        abandonedCat!.Count.Should().Be(1);
+        abandonedCat.ReclaimableSizeBytes.Should().Be(30_000_000_000);
+
+        // Also verify querying repo with CategoryId = Abandoned returns only showAbandoned
+        var pagedAbandoned = await _mediaRepo.GetPagedAsync(new MediaFilterOptions(CategoryId: SmartCategoryIds.Abandoned));
+        pagedAbandoned.Should().ContainSingle();
+        pagedAbandoned[0].Id.Should().Be("show-abandoned");
+    }
+
+    [Fact]
     public async Task PruneExecutionService_ShouldRejectProtectedItem()
     {
         await _initializer.InitializeAsync();

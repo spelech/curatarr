@@ -93,7 +93,10 @@ public class TautulliClient : ITautulliClient
             long dateUnix = el.TryGetProperty("date", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetInt64() : 0;
             var date = DateTimeOffset.FromUnixTimeSeconds(dateUnix).UtcDateTime;
 
-            list.Add(new TautulliHistoryItemDto(rk, gprk, prk, title, gpTitle, userId, username, season, date));
+            var mediaType = el.TryGetProperty("media_type", out var mt) && mt.ValueKind == JsonValueKind.String ? mt.GetString() : null;
+            int? year = el.TryGetProperty("year", out var yr) && yr.ValueKind == JsonValueKind.Number && yr.TryGetInt32(out var yrVal) ? yrVal : (int?)null;
+
+            list.Add(new TautulliHistoryItemDto(rk, gprk, prk, title, gpTitle, userId, username, season, date, mediaType, year));
         }
 
         return list;

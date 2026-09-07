@@ -8,6 +8,7 @@ interface TableViewProps {
   onToggleSelect: (id: string) => void;
   onToggleProtect: (id: string, isProtected: boolean) => void;
   onPrune: (item: MediaItem) => void;
+  onOpenDetail: (item: MediaItem) => void;
 }
 
 export const TableView: React.FC<TableViewProps> = ({
@@ -16,6 +17,7 @@ export const TableView: React.FC<TableViewProps> = ({
   onToggleSelect,
   onToggleProtect,
   onPrune,
+  onOpenDetail,
 }) => {
   const formatSize = (bytes: number) => {
     const gb = bytes / (1024 * 1024 * 1024);
@@ -27,7 +29,10 @@ export const TableView: React.FC<TableViewProps> = ({
       .map((w) => (w.lastPlayedAt ? new Date(w.lastPlayedAt).getTime() : 0))
       .reduce((max, t) => Math.max(max, t), 0);
 
-    if (lastPlayed === 0) return 'Never';
+    if (lastPlayed === 0) {
+      const totalPlays = item.watchStats.reduce((sum, w) => sum + w.playCount, 0);
+      return totalPlays > 0 ? 'Watched' : 'Never';
+    }
     const daysAgo = Math.floor((Date.now() - lastPlayed) / (1000 * 60 * 60 * 24));
     if (daysAgo < 30) return `${daysAgo}d ago`;
     if (daysAgo < 365) return `${Math.floor(daysAgo / 30)}mo ago`;
@@ -70,7 +75,10 @@ export const TableView: React.FC<TableViewProps> = ({
                   />
                 </td>
                 <td className="p-3 font-semibold text-white">
-                  <div className="flex items-center gap-2">
+                  <div
+                    onClick={() => onOpenDetail(item)}
+                    className="flex items-center gap-2 cursor-pointer hover:text-sky-300 transition"
+                  >
                     <span>{item.title}</span>
                     {item.year && <span className="text-slate-500 font-normal">({item.year})</span>}
                   </div>
@@ -82,14 +90,40 @@ export const TableView: React.FC<TableViewProps> = ({
                   </div>
                 </td>
                 <td className="p-3">
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     {item.instances.map((i) => (
-                      <span
-                        key={i.id}
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700"
-                      >
-                        {i.qualityProfileName || 'Default'}
-                      </span>
+                      <React.Fragment key={i.id}>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                            i.qualityProfileName?.toLowerCase().includes('4k')
+                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                              : 'bg-slate-800 text-slate-300 border-slate-700'
+                          }`}
+                        >
+                          {i.qualityProfileName || 'Default'}
+                        </span>
+                        {i.resolution && (
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              i.resolution === 'SD'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : i.resolution === '4K'
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            }`}
+                          >
+                            {i.resolution}
+                          </span>
+                        )}
+                        {i.cutoffUnmet && (
+                          <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                            title="Quality cutoff unmet"
+                          >
+                            Cutoff
+                          </span>
+                        )}
+                      </React.Fragment>
                     ))}
                   </div>
                 </td>

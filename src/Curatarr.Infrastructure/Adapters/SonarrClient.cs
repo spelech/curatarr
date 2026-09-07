@@ -82,10 +82,48 @@ public class SonarrClient : ISonarrClient
                 }
             }
 
-            list.Add(new SonarrSeriesDto(id, title, sortTitle, tvdbId, imdbId, year, monitored, path, sizeOnDisk, episodeFileCount, totalEpisodeCount, qualityProfileId, seasons));
+            string? resTag = null;
+            if (connection.TierTag?.Contains("4K", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                resTag = "4K";
+            }
+            else if (qualityProfileId == 2 || qualityProfileId == 9) // SD profiles
+            {
+                resTag = "SD";
+            }
+            else
+            {
+                resTag = "1080p";
+            }
+
+            list.Add(new SonarrSeriesDto(id, title, sortTitle, tvdbId, imdbId, year, monitored, path, sizeOnDisk, episodeFileCount, totalEpisodeCount, qualityProfileId, seasons, resTag));
         }
 
         return list;
+    }
+
+    public async Task<HashSet<int>> GetCutoffUnmetSeriesIdsAsync(ServiceConnection connection, CancellationToken ct = default)
+    {
+        var baseUrl = connection.BaseUrl.TrimEnd('/');
+        using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/api/v3/wanted/cutoff?page=1&pageSize=5000", connection.ApiKey);
+        using var res = await _httpClient.SendAsync(req, ct);
+        if (!res.IsSuccessStatusCode) return [];
+
+        using var stream = await res.Content.ReadAsStreamAsync(ct);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+        var set = new HashSet<int>();
+        if (doc.RootElement.TryGetProperty("records", out var records) && records.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in records.EnumerateArray())
+            {
+                if (el.TryGetProperty("seriesId", out var sIdProp) && sIdProp.TryGetInt32(out var sId))
+                {
+                    set.Add(sId);
+                }
+            }
+        }
+        return set;
     }
 
     public async Task<IReadOnlyList<SonarrEpisodeFileDto>> GetEpisodeFilesAsync(ServiceConnection connection, int seriesId, CancellationToken ct = default)

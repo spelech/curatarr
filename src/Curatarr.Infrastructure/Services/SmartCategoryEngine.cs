@@ -45,7 +45,7 @@ public class SmartCategoryEngine : ISmartCategoryEngine
             SELECT COUNT(*) as Count, COALESCE(SUM(m.total_size_bytes), 0) as Size
             FROM media_items m
             WHERE m.is_protected = 0 AND m.media_type = 1
-              AND EXISTS (SELECT 1 FROM watch_stats ws WHERE ws.media_item_id = m.id AND ws.season_number = 1 AND ws.play_count > 0)
+              AND EXISTS (SELECT 1 FROM watch_stats ws WHERE ws.media_item_id = m.id AND ws.play_count > 0)
               AND (SELECT MAX(ws.last_played_at) FROM watch_stats ws WHERE ws.media_item_id = m.id) < @AbandonedDate;";
 
         var abandoned = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlAbandoned, new { AbandonedDate = abandonedDate }, cancellationToken: ct));

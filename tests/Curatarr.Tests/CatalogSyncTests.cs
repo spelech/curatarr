@@ -207,4 +207,127 @@ public class CatalogSyncTests : IDisposable
         instCount.Should().Be(2);
         seasCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task SyncAsync_ShouldNotCollide_WhenMovieAndShowHaveSameTitle()
+    {
+        await _initializer.InitializeAsync();
+
+        var connSonarr = new ServiceConnection
+        {
+            Id = "sonarr-1",
+            ConnectionType = ConnectionType.Sonarr,
+            Name = "Sonarr",
+            BaseUrl = "http://sonarr:8989",
+            ApiKey = "key1",
+            IsEnabled = true
+        };
+        var connRadarr = new ServiceConnection
+        {
+            Id = "radarr-1",
+            ConnectionType = ConnectionType.Radarr,
+            Name = "Radarr",
+            BaseUrl = "http://radarr:7878",
+            ApiKey = "key2",
+            IsEnabled = true
+        };
+        var connPlex = new ServiceConnection
+        {
+            Id = "plex-1",
+            ConnectionType = ConnectionType.Plex,
+            Name = "Plex",
+            BaseUrl = "http://plex:32400",
+            ApiKey = "key3",
+            IsEnabled = true
+        };
+        var connTautulli = new ServiceConnection
+        {
+            Id = "tautulli-1",
+            ConnectionType = ConnectionType.Tautulli,
+            Name = "Tautulli",
+            BaseUrl = "http://tautulli:8181",
+            ApiKey = "key4",
+            IsEnabled = true
+        };
+
+        await _connRepo.UpsertAsync(connSonarr);
+        await _connRepo.UpsertAsync(connRadarr);
+        await _connRepo.UpsertAsync(connPlex);
+        await _connRepo.UpsertAsync(connTautulli);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        // TV Show: House (2004)
+        var houseShow = new SonarrSeriesDto(
+            1, "House", "house", 73255, "tt0412142", 2004, true, "/tv/House", 400_000_000_000, 176, 176, 1,
+            [new SonarrSeasonDto(1, true, 50_000_000_000, 22, 22)]
+        );
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SonarrSeriesDto>>([houseShow]));
+
+        // Movie: House (1977)
+        var houseMovie = new RadarrMovieDto(
+            2, "House", "house", 27406, "tt0076162", 1977, true, true, "/movies/House (1977)", 6_500_000_000, 1
+        );
+        radarrClient.GetMoviesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<RadarrMovieDto>>([houseMovie]));
+
+        // Plex Sections: Movies and TV Shows
+        plexClient.GetSectionsAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PlexSectionDto>>([
+                new PlexSectionDto("1", "Movies", "movie", null),
+                new PlexSectionDto("2", "TV Shows", "show", null)
+            ]));
+
+        // Plex section items
+        plexClient.GetSectionItemsAsync(Arg.Any<ServiceConnection>(), "1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PlexMetadataItemDto>>([
+                new PlexMetadataItemDto(19153, "House", "movie", "guid1", 1977, ViewCount: 0)
+            ]));
+        plexClient.GetSectionItemsAsync(Arg.Any<ServiceConnection>(), "2", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PlexMetadataItemDto>>([
+                new PlexMetadataItemDto(27406, "House", "show", "guid2", 2004, ViewCount: 98, LastViewedAt: DateTime.UtcNow.AddDays(-10))
+            ]));
+
+        // Tautulli watch history for episode of House (Season 1)
+        var historyItem = new TautulliHistoryItemDto(
+            RatingKey: 4391,
+            GrandparentRatingKey: "27406",
+            ParentRatingKey: "19656",
+            Title: "Control",
+            GrandparentTitle: "House",
+            UserId: "user1",
+            Username: "spelech",
+            SeasonNumber: 1,
+            Date: DateTime.UtcNow.AddDays(-5),
+            MediaType: "episode",
+            Year: 2005
+        );
+        tautulliClient.GetHistoryAsync(Arg.Any<ServiceConnection>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<TautulliHistoryItemDto>>([historyItem]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync(fullSync: true);
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10 });
+        items.Should().HaveCount(2);
+
+        var movieItem = items.First(i => i.MediaType == MediaType.Movie);
+        movieItem.Title.Should().Be("House");
+        movieItem.Year.Should().Be(1977);
+        movieItem.PlexRatingKey.Should().Be(19153);
+        movieItem.WatchStats.Should().BeEmpty(); // Movie was not watched!
+
+        var showItem = items.First(i => i.MediaType == MediaType.Series);
+        showItem.Title.Should().Be("House");
+        showItem.Year.Should().Be(2004);
+        showItem.PlexRatingKey.Should().Be(27406);
+        showItem.WatchStats.Should().ContainSingle();
+        showItem.WatchStats[0].Username.Should().Be("spelech");
+        showItem.WatchStats[0].SeasonNumber.Should().Be(1);
+        showItem.WatchStats[0].PlayCount.Should().Be(1);
+    }
 }

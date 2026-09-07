@@ -37,6 +37,7 @@ public class MediaInstance
     public string ConnectionId { get; set; } = string.Empty;
     public int ExternalId { get; set; }
     public string? QualityProfileName { get; set; }
+    public string? Resolution { get; set; }
     public bool CutoffUnmet { get; set; }
     public bool IsMonitored { get; set; } = true;
     public string? DiskPath { get; set; }

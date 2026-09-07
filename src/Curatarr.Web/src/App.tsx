@@ -10,6 +10,7 @@ import { BatchActionBar } from './components/BatchActionBar';
 import { PruneConfirmModal } from './components/PruneConfirmModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuditLogModal } from './components/AuditLogModal';
+import { MediaDetailModal } from './components/MediaDetailModal';
 import { MediaItem } from './types/api';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<MediaItem | null>(null);
   const [pruneModalState, setPruneModalState] = useState<{
     isOpen: boolean;
     items: MediaItem[];
@@ -123,6 +125,7 @@ export default function App() {
                 onToggleSelect={() => toggleSelect(item.id)}
                 onToggleProtect={() => toggleProtect(item.id, !item.isProtected)}
                 onPrune={(seasonNum) => handleOpenSinglePrune(item, seasonNum)}
+                onOpenDetail={() => setDetailItem(item)}
               />
             ))}
           </div>
@@ -133,6 +136,7 @@ export default function App() {
             onToggleSelect={toggleSelect}
             onToggleProtect={toggleProtect}
             onPrune={(item) => handleOpenSinglePrune(item)}
+            onOpenDetail={(item) => setDetailItem(item)}
           />
         )}
       </main>
@@ -144,6 +148,23 @@ export default function App() {
         onBatchProtect={handleBatchProtect}
         onBatchPrune={handleOpenBatchPrune}
         onClear={clearSelection}
+      />
+
+      {/* Media Detail Modal */}
+      <MediaDetailModal
+        item={detailItem}
+        isOpen={detailItem !== null}
+        onClose={() => setDetailItem(null)}
+        onToggleProtect={async (id, isProtected, reason) => {
+          await toggleProtect(id, isProtected, reason);
+          if (detailItem && detailItem.id === id) {
+            setDetailItem({ ...detailItem, isProtected, protectionReason: reason });
+          }
+        }}
+        onPrune={(item, seasonNum) => {
+          setDetailItem(null);
+          handleOpenSinglePrune(item, seasonNum);
+        }}
       />
 
       {/* Prune Confirmation Modal */}
