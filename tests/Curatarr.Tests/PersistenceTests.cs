@@ -2,6 +2,7 @@ using Curatarr.Core.Models;
 using Curatarr.Core.Repositories;
 using Curatarr.Infrastructure.Data;
 using Curatarr.Infrastructure.Repositories;
+using Dapper;
 using FluentAssertions;
 
 namespace Curatarr.Tests;
@@ -284,5 +285,73 @@ public class PersistenceTests : IDisposable
 
         var recent = await repo.GetRecentAsync(10);
         recent.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task DatabaseInitializer_ShouldMigrateLegacyDatabase_WithoutResolutionOrCutoffColumns()
+    {
+        var legacyDbPath = Path.Combine(Path.GetTempPath(), $"curatarr_legacy_{Guid.NewGuid():N}.db");
+        try
+        {
+            var legacyFactory = new SqliteConnectionFactory($"Data Source={legacyDbPath}");
+            using (var conn = legacyFactory.CreateConnection())
+            {
+                conn.Open();
+                // Create legacy media_items and media_instances tables without resolution/cutoff_unmet
+                await conn.ExecuteAsync(@"
+                    CREATE TABLE media_items (
+                        id TEXT PRIMARY KEY,
+                        media_type INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        sort_title TEXT NOT NULL,
+                        year INTEGER,
+                        tmdb_id TEXT,
+                        tvdb_id TEXT,
+                        imdb_id TEXT,
+                        plex_rating_key INTEGER,
+                        poster_url TEXT,
+                        added_at TEXT,
+                        total_size_bytes INTEGER NOT NULL DEFAULT 0,
+                        is_protected INTEGER NOT NULL DEFAULT 0,
+                        protection_reason TEXT,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    );
+
+                    CREATE TABLE media_instances (
+                        id TEXT PRIMARY KEY,
+                        media_item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+                        connection_id TEXT NOT NULL,
+                        external_id INTEGER NOT NULL,
+                        quality_profile_name TEXT,
+                        is_monitored INTEGER NOT NULL DEFAULT 1,
+                        disk_path TEXT,
+                        size_bytes INTEGER NOT NULL DEFAULT 0,
+                        has_file INTEGER NOT NULL DEFAULT 1,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL
+                    );
+                ");
+            }
+
+            var legacyInitializer = new DatabaseInitializer(legacyFactory);
+            // Must succeed without SQLite Error: no such column
+            await legacyInitializer.InitializeAsync();
+
+            using (var verifyConn = legacyFactory.CreateConnection())
+            {
+                verifyConn.Open();
+                var cols = (await verifyConn.QueryAsync<dynamic>("PRAGMA table_info(media_instances);")).ToList();
+                var colNames = cols.Select(c => ((IDictionary<string, object>)c)["name"]?.ToString() ?? "").ToList();
+                colNames.Should().Contain(["resolution", "cutoff_unmet"]);
+            }
+        }
+        finally
+        {
+            if (File.Exists(legacyDbPath))
+            {
+                try { File.Delete(legacyDbPath); } catch { /* best effort */ }
+            }
+        }
     }
 }
