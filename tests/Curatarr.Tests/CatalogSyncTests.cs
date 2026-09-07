@@ -5,6 +5,7 @@ using Curatarr.Core.Services;
 using Curatarr.Infrastructure.Data;
 using Curatarr.Infrastructure.Repositories;
 using Curatarr.Infrastructure.Services;
+using Dapper;
 using FluentAssertions;
 using NSubstitute;
 
@@ -128,5 +129,82 @@ public class CatalogSyncTests : IDisposable
         dark.WatchStats.Should().ContainSingle();
         dark.WatchStats[0].Username.Should().Be("steve");
         dark.WatchStats[0].PlayCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SyncAsync_RepeatedSyncs_ShouldBeIdempotentAndProduceZeroDuplicates()
+    {
+        await _initializer.InitializeAsync();
+
+        var connHd = new ServiceConnection
+        {
+            Id = "sonarr-hd",
+            ConnectionType = ConnectionType.Sonarr,
+            Name = "Sonarr HD",
+            BaseUrl = "http://sonarrhd:8989",
+            ApiKey = "key1",
+            TierTag = "HD",
+            IsEnabled = true
+        };
+        var connRadarr = new ServiceConnection
+        {
+            Id = "radarr-hd",
+            ConnectionType = ConnectionType.Radarr,
+            Name = "Radarr HD",
+            BaseUrl = "http://radarrhd:7878",
+            ApiKey = "key2",
+            TierTag = "HD",
+            IsEnabled = true
+        };
+        await _connRepo.UpsertAsync(connHd);
+        await _connRepo.UpsertAsync(connRadarr);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        var show = new SonarrSeriesDto(
+            10, "Severance", "severance", 300, "tt11280740", 2022, true, "/tv/Severance", 12_000_000_000, 9, 9, 1,
+            [new SonarrSeasonDto(1, true, 12_000_000_000, 9, 9)]
+        );
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SonarrSeriesDto>>([show]));
+
+        var movie = new RadarrMovieDto(
+            20, "Dune: Part Two", "dune part two", 693134, "tt15239678", 2024, true, true, "/movies/Dune 2", 25_000_000_000, 1
+        );
+        radarrClient.GetMoviesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<RadarrMovieDto>>([movie]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+
+        // Run sync 3 consecutive times
+        await syncService.TriggerSyncAsync(fullSync: true);
+        await syncService.TriggerSyncAsync(fullSync: false);
+        await syncService.TriggerSyncAsync(fullSync: false);
+
+        // Verify count and sizes in repo
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 100 });
+        items.Should().HaveCount(2);
+
+        var sev = items.First(i => i.Title == "Severance");
+        sev.TotalSizeBytes.Should().Be(12_000_000_000);
+        sev.Instances.Should().HaveCount(1);
+        sev.Seasons.Should().HaveCount(1);
+
+        var dune = items.First(i => i.Title == "Dune: Part Two");
+        dune.TotalSizeBytes.Should().Be(25_000_000_000);
+        dune.Instances.Should().HaveCount(1);
+
+        // Verify SQLite raw tables have zero duplicate rows
+        using var conn = _factory.CreateConnection();
+        var itemCount = await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM media_items;");
+        var instCount = await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM media_instances;");
+        var seasCount = await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM seasons;");
+
+        itemCount.Should().Be(2);
+        instCount.Should().Be(2);
+        seasCount.Should().Be(1);
     }
 }

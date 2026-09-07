@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Curatarr.Core.Adapters;
 using Curatarr.Core.Models;
@@ -68,7 +70,7 @@ public class CatalogSyncService : ICatalogSyncService
 
                         var item = itemMap.GetOrAdd(key, _ => new MediaItem
                         {
-                            Id = Guid.NewGuid().ToString("N"),
+                            Id = ComputeDeterministicId($"series:{key}"),
                             MediaType = MediaType.Series,
                             Title = s.Title,
                             SortTitle = s.SortTitle ?? s.Title,
@@ -79,32 +81,37 @@ public class CatalogSyncService : ICatalogSyncService
                             UpdatedAt = DateTime.UtcNow
                         });
 
-                        // Add instance
-                        item.Instances.Add(new MediaInstance
+                        // Add instance (avoid duplicate instance from same connection/externalId)
+                        var instanceId = ComputeDeterministicId($"inst:{conn.Id}:{s.Id}");
+                        if (!item.Instances.Any(i => i.Id == instanceId))
                         {
-                            Id = Guid.NewGuid().ToString("N"),
-                            MediaItemId = item.Id,
-                            ConnectionId = conn.Id,
-                            ExternalId = s.Id,
-                            QualityProfileName = conn.TierTag ?? "Default",
-                            CutoffUnmet = false,
-                            IsMonitored = s.Monitored,
-                            DiskPath = s.Path,
-                            SizeBytes = s.SizeOnDisk,
-                            HasFile = s.EpisodeFileCount > 0,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        });
+                            item.Instances.Add(new MediaInstance
+                            {
+                                Id = instanceId,
+                                MediaItemId = item.Id,
+                                ConnectionId = conn.Id,
+                                ExternalId = s.Id,
+                                QualityProfileName = conn.TierTag ?? "Default",
+                                CutoffUnmet = false,
+                                IsMonitored = s.Monitored,
+                                DiskPath = s.Path,
+                                SizeBytes = s.SizeOnDisk,
+                                HasFile = s.EpisodeFileCount > 0,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            });
+                        }
 
                         // Merge seasons
                         foreach (var seas in s.Seasons)
                         {
+                            var seasonId = ComputeDeterministicId($"season:{item.Id}:{seas.SeasonNumber}");
                             var existingSeason = item.Seasons.FirstOrDefault(x => x.SeasonNumber == seas.SeasonNumber);
                             if (existingSeason == null)
                             {
                                 item.Seasons.Add(new Season
                                 {
-                                    Id = Guid.NewGuid().ToString("N"),
+                                    Id = seasonId,
                                     MediaItemId = item.Id,
                                     SeasonNumber = seas.SeasonNumber,
                                     IsMonitored = seas.Monitored,
@@ -147,7 +154,7 @@ public class CatalogSyncService : ICatalogSyncService
 
                         var item = itemMap.GetOrAdd(key, _ => new MediaItem
                         {
-                            Id = Guid.NewGuid().ToString("N"),
+                            Id = ComputeDeterministicId($"movie:{key}"),
                             MediaType = MediaType.Movie,
                             Title = m.Title,
                             SortTitle = m.SortTitle ?? m.Title,
@@ -158,21 +165,25 @@ public class CatalogSyncService : ICatalogSyncService
                             UpdatedAt = DateTime.UtcNow
                         });
 
-                        item.Instances.Add(new MediaInstance
+                        var instanceId = ComputeDeterministicId($"inst:{conn.Id}:{m.Id}");
+                        if (!item.Instances.Any(i => i.Id == instanceId))
                         {
-                            Id = Guid.NewGuid().ToString("N"),
-                            MediaItemId = item.Id,
-                            ConnectionId = conn.Id,
-                            ExternalId = m.Id,
-                            QualityProfileName = conn.TierTag ?? "Default",
-                            CutoffUnmet = false,
-                            IsMonitored = m.Monitored,
-                            DiskPath = m.Path,
-                            SizeBytes = m.SizeOnDisk,
-                            HasFile = m.HasFile,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        });
+                            item.Instances.Add(new MediaInstance
+                            {
+                                Id = instanceId,
+                                MediaItemId = item.Id,
+                                ConnectionId = conn.Id,
+                                ExternalId = m.Id,
+                                QualityProfileName = conn.TierTag ?? "Default",
+                                CutoffUnmet = false,
+                                IsMonitored = m.Monitored,
+                                DiskPath = m.Path,
+                                SizeBytes = m.SizeOnDisk,
+                                HasFile = m.HasFile,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            });
+                        }
                     }
 
                     conn.LastSyncAt = DateTime.UtcNow;
@@ -280,7 +291,7 @@ public class CatalogSyncService : ICatalogSyncService
                             {
                                 matchedItem.WatchStats.Add(new WatchStat
                                 {
-                                    Id = Guid.NewGuid().ToString("N"),
+                                    Id = ComputeDeterministicId($"watch:{matchedItem.Id}:{h.UserId}:{h.SeasonNumber ?? 0}"),
                                     MediaItemId = matchedItem.Id,
                                     SeasonNumber = h.SeasonNumber,
                                     UserId = h.UserId,
@@ -333,5 +344,11 @@ public class CatalogSyncService : ICatalogSyncService
         if (string.IsNullOrWhiteSpace(title)) return string.Empty;
         // Strip non-alphanumeric characters for fuzzy resilient title matching
         return Regex.Replace(title, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
+    }
+
+    private static string ComputeDeterministicId(string input)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
+        return Convert.ToHexString(bytes).ToLowerInvariant()[..32];
     }
 }
