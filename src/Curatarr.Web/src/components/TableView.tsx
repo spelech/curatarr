@@ -85,14 +85,40 @@ export const TableView: React.FC<TableViewProps> = ({
                   </div>
                 </td>
                 <td className="p-3">
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     {item.instances.map((i) => (
-                      <span
-                        key={i.id}
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700"
-                      >
-                        {i.qualityProfileName || 'Default'}
-                      </span>
+                      <React.Fragment key={i.id}>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                            i.qualityProfileName?.toLowerCase().includes('4k')
+                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                              : 'bg-slate-800 text-slate-300 border-slate-700'
+                          }`}
+                        >
+                          {i.qualityProfileName || 'Default'}
+                        </span>
+                        {i.resolution && (
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              i.resolution === 'SD'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : i.resolution === '4K'
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            }`}
+                          >
+                            {i.resolution}
+                          </span>
+                        )}
+                        {i.cutoffUnmet && (
+                          <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                            title="Quality cutoff unmet"
+                          >
+                            Cutoff
+                          </span>
+                        )}
+                      </React.Fragment>
                     ))}
                   </div>
                 </td>

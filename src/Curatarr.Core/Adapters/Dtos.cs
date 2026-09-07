@@ -15,7 +15,8 @@ public record SonarrSeriesDto(
     int EpisodeFileCount,
     int TotalEpisodeCount,
     int? QualityProfileId,
-    IReadOnlyList<SonarrSeasonDto> Seasons
+    IReadOnlyList<SonarrSeasonDto> Seasons,
+    string? Resolution = null
 );
 
 public record SonarrSeasonDto(
@@ -45,7 +46,8 @@ public record RadarrMovieDto(
     bool Monitored,
     string? Path,
     long SizeOnDisk,
-    int? QualityProfileId
+    int? QualityProfileId,
+    string? Resolution = null
 );
 
 public record TautulliUserDto(

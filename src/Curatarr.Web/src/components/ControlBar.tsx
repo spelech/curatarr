@@ -9,6 +9,10 @@ export const ControlBar: React.FC = () => {
     setSelectedUserId,
     selectedMediaType,
     setSelectedMediaType,
+    selectedResolution,
+    setSelectedResolution,
+    selectedCutoffUnmet,
+    setSelectedCutoffUnmet,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -27,9 +31,9 @@ export const ControlBar: React.FC = () => {
 
   return (
     <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-      {/* Left side: Search & Multi-User filter */}
+      {/* Left side: Search & Multi-User filter & Resolution / Cutoff */}
       <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
+        <div className="relative flex-1 min-w-[160px] max-w-xs">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
@@ -58,6 +62,34 @@ export const ControlBar: React.FC = () => {
             ))}
           </select>
         </div>
+
+        {/* Resolution Dropdown */}
+        <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-md px-2.5 py-0.5 text-slate-300">
+          <select
+            value={selectedResolution || ''}
+            onChange={(e) => setSelectedResolution(e.target.value || null)}
+            className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer py-1.5 min-h-[28px]"
+          >
+            <option value="" className="bg-slate-900 text-slate-200">All Resolutions</option>
+            <option value="SD" className="bg-slate-900 text-slate-200">SD (&lt; 720p)</option>
+            <option value="720p" className="bg-slate-900 text-slate-200">720p</option>
+            <option value="1080p" className="bg-slate-900 text-slate-200">1080p</option>
+            <option value="4K" className="bg-slate-900 text-slate-200">4K (2160p)</option>
+          </select>
+        </div>
+
+        {/* Cutoff Unmet Toggle Button */}
+        <button
+          onClick={() => setSelectedCutoffUnmet(selectedCutoffUnmet ? null : true)}
+          className={`px-2.5 py-1 min-h-[28px] rounded-md border text-xs font-medium transition flex items-center gap-1.5 ${
+            selectedCutoffUnmet
+              ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+          }`}
+          title="Show only items where quality cutoff is unmet in Radarr/Sonarr"
+        >
+          <span>Cutoff Unmet</span>
+        </button>
       </div>
 
       {/* Right side: Media Type toggle, Sort, View mode & Select All */}

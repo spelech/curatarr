@@ -64,6 +64,15 @@ public class CatalogSyncService : ICatalogSyncService
                 try
                 {
                     var seriesList = await _sonarrClient.GetSeriesAsync(conn, ct);
+                    HashSet<int> cutoffIds;
+                    try
+                    {
+                        cutoffIds = (await _sonarrClient.GetCutoffUnmetSeriesIdsAsync(conn, ct)) ?? [];
+                    }
+                    catch
+                    {
+                        cutoffIds = [];
+                    }
                     foreach (var s in seriesList)
                     {
                         var key = s.TvdbId.HasValue ? $"tvdb:{s.TvdbId}" : (s.ImdbId != null ? $"imdb:{s.ImdbId}" : $"title:{s.Title.ToLowerInvariant()}:{s.Year}");
@@ -92,11 +101,12 @@ public class CatalogSyncService : ICatalogSyncService
                                 ConnectionId = conn.Id,
                                 ExternalId = s.Id,
                                 QualityProfileName = conn.TierTag ?? "Default",
-                                CutoffUnmet = false,
+                                CutoffUnmet = cutoffIds.Contains(s.Id),
                                 IsMonitored = s.Monitored,
                                 DiskPath = s.Path,
                                 SizeBytes = s.SizeOnDisk,
                                 HasFile = s.EpisodeFileCount > 0,
+                                Resolution = s.Resolution,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             });
@@ -148,6 +158,15 @@ public class CatalogSyncService : ICatalogSyncService
                 try
                 {
                     var movies = await _radarrClient.GetMoviesAsync(conn, ct);
+                    HashSet<int> cutoffIds;
+                    try
+                    {
+                        cutoffIds = (await _radarrClient.GetCutoffUnmetMovieIdsAsync(conn, ct)) ?? [];
+                    }
+                    catch
+                    {
+                        cutoffIds = [];
+                    }
                     foreach (var m in movies)
                     {
                         var key = m.TmdbId.HasValue ? $"tmdb:{m.TmdbId}" : (m.ImdbId != null ? $"imdb:{m.ImdbId}" : $"title:{m.Title.ToLowerInvariant()}:{m.Year}");
@@ -175,11 +194,12 @@ public class CatalogSyncService : ICatalogSyncService
                                 ConnectionId = conn.Id,
                                 ExternalId = m.Id,
                                 QualityProfileName = conn.TierTag ?? "Default",
-                                CutoffUnmet = false,
+                                CutoffUnmet = cutoffIds.Contains(m.Id),
                                 IsMonitored = m.Monitored,
                                 DiskPath = m.Path,
                                 SizeBytes = m.SizeOnDisk,
                                 HasFile = m.HasFile,
+                                Resolution = m.Resolution,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             });

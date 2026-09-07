@@ -65,6 +65,7 @@ public class DatabaseInitializer
             disk_path TEXT,
             size_bytes INTEGER NOT NULL DEFAULT 0,
             has_file INTEGER NOT NULL DEFAULT 1,
+            resolution TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -137,7 +138,17 @@ public class DatabaseInitializer
         CREATE UNIQUE INDEX IF NOT EXISTS idx_seasons_item ON seasons(media_item_id, season_number);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_inst_conn_ext ON media_instances(connection_id, external_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_watch_item_user_season ON watch_stats(media_item_id, user_id, IFNULL(season_number, 0));
+        CREATE INDEX IF NOT EXISTS idx_instances_res ON media_instances(resolution);
+        CREATE INDEX IF NOT EXISTS idx_instances_cutoff ON media_instances(cutoff_unmet);
         ";
         await connection.ExecuteAsync(uniqueIndexesSql);
+
+        // Migration: Ensure resolution column exists on existing media_instances
+        var columns = await connection.QueryAsync<dynamic>("PRAGMA table_info(media_instances);");
+        var hasResolution = columns.Any(c => string.Equals(((IDictionary<string, object>)c)["name"]?.ToString(), "resolution", StringComparison.OrdinalIgnoreCase));
+        if (!hasResolution)
+        {
+            await connection.ExecuteAsync("ALTER TABLE media_instances ADD COLUMN resolution TEXT;");
+        }
     }
 }

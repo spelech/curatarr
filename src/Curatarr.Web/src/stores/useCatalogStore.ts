@@ -8,6 +8,8 @@ interface CatalogState {
   selectedCategory: string;
   selectedUserId: string | null;
   selectedMediaType: 'all' | 'movie' | 'series';
+  selectedResolution: string | null;
+  selectedCutoffUnmet: boolean | null;
   searchQuery: string;
   sortBy: string;
   sortDesc: boolean;
@@ -21,6 +23,8 @@ interface CatalogState {
   setSelectedCategory: (cat: string) => void;
   setSelectedUserId: (userId: string | null) => void;
   setSelectedMediaType: (type: 'all' | 'movie' | 'series') => void;
+  setSelectedResolution: (resolution: string | null) => void;
+  setSelectedCutoffUnmet: (cutoff: boolean | null) => void;
   setSearchQuery: (query: string) => void;
   setSortBy: (sort: string) => void;
   toggleSortDesc: () => void;
@@ -46,6 +50,8 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   selectedCategory: 'never_watched',
   selectedUserId: null,
   selectedMediaType: 'all',
+  selectedResolution: null,
+  selectedCutoffUnmet: null,
   searchQuery: '',
   sortBy: 'size',
   sortDesc: true,
@@ -67,7 +73,17 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
 
   setSelectedMediaType: (type) => {
-    set({ selectedMediaType: type });
+    set({ selectedMediaType: type, selectedIds: new Set() });
+    get().fetchItems();
+  },
+
+  setSelectedResolution: (resolution) => {
+    set({ selectedResolution: resolution, selectedIds: new Set() });
+    get().fetchItems();
+  },
+
+  setSelectedCutoffUnmet: (cutoff) => {
+    set({ selectedCutoffUnmet: cutoff, selectedIds: new Set() });
     get().fetchItems();
   },
 
@@ -138,11 +154,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   fetchItems: async () => {
     set({ isLoading: true });
     try {
-      const { selectedCategory, selectedUserId, selectedMediaType, searchQuery, sortBy, sortDesc } = get();
+      const { selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, searchQuery, sortBy, sortDesc } = get();
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedUserId) params.set('userId', selectedUserId);
       if (selectedMediaType !== 'all') params.set('mediaType', selectedMediaType);
+      if (selectedResolution) params.set('resolution', selectedResolution);
+      if (selectedCutoffUnmet !== null) params.set('cutoffUnmet', selectedCutoffUnmet.toString());
       if (searchQuery) params.set('search', searchQuery);
       params.set('sortBy', sortBy);
       params.set('sortDesc', sortDesc.toString());

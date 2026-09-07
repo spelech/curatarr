@@ -16,6 +16,7 @@ export interface MediaInstance {
   diskPath?: string;
   sizeBytes: number;
   hasFile: boolean;
+  resolution?: string;
 }
 
 export interface Season {

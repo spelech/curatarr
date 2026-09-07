@@ -43,6 +43,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
   // Distinct tier tags across instances
   const tierTags = Array.from(new Set(item.instances.map((i) => i.qualityProfileName || 'Default')));
+  const resolutions = Array.from(new Set(item.instances.map((i) => i.resolution).filter(Boolean))) as string[];
+  const hasCutoffUnmet = item.instances.some((i) => i.cutoffUnmet);
 
   return (
     <div
@@ -60,8 +62,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               onChange={onToggleSelect}
               className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-600 focus:ring-sky-500 cursor-pointer"
             />
-            {/* Instance tier tags (HD / 4K) */}
-            <div className="flex items-center gap-1">
+            {/* Instance tier tags & Resolution & Cutoff */}
+            <div className="flex flex-wrap items-center gap-1">
               {tierTags.map((tag) => (
                 <span
                   key={tag}
@@ -74,6 +76,28 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                   {tag}
                 </span>
               ))}
+              {resolutions.map((res) => (
+                <span
+                  key={res}
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    res === 'SD'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : res === '4K'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}
+                >
+                  {res}
+                </span>
+              ))}
+              {hasCutoffUnmet && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                  title="Quality cutoff unmet in Arr"
+                >
+                  Cutoff
+                </span>
+              )}
             </div>
           </div>
 

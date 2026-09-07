@@ -145,6 +145,102 @@ public class PersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task MediaRepository_ShouldFilterByResolution_AndCutoffUnmet()
+    {
+        await _initializer.InitializeAsync();
+        IMediaRepository repo = new MediaRepository(_factory);
+
+        var sdCutoffItem = new MediaItem
+        {
+            Id = "sd-cutoff",
+            MediaType = MediaType.Movie,
+            Title = "SD Cutoff Unmet Movie",
+            SortTitle = "SD Cutoff Unmet Movie",
+            TotalSizeBytes = 1_000_000_000,
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-sd",
+                    MediaItemId = "sd-cutoff",
+                    ConnectionId = "radarr-1",
+                    ExternalId = 1,
+                    Resolution = "SD",
+                    CutoffUnmet = true,
+                    HasFile = true
+                }
+            ]
+        };
+
+        var hdItem = new MediaItem
+        {
+            Id = "hd-met",
+            MediaType = MediaType.Movie,
+            Title = "HD Met Movie",
+            SortTitle = "HD Met Movie",
+            TotalSizeBytes = 5_000_000_000,
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-hd",
+                    MediaItemId = "hd-met",
+                    ConnectionId = "radarr-1",
+                    ExternalId = 2,
+                    Resolution = "1080p",
+                    CutoffUnmet = false,
+                    HasFile = true
+                }
+            ]
+        };
+
+        var fourKCutoffItem = new MediaItem
+        {
+            Id = "4k-cutoff",
+            MediaType = MediaType.Movie,
+            Title = "4K Cutoff Movie",
+            SortTitle = "4K Cutoff Movie",
+            TotalSizeBytes = 30_000_000_000,
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-4k",
+                    MediaItemId = "4k-cutoff",
+                    ConnectionId = "radarr-2",
+                    ExternalId = 3,
+                    Resolution = "4K",
+                    CutoffUnmet = true,
+                    HasFile = true
+                }
+            ]
+        };
+
+        await repo.UpsertBatchAsync([sdCutoffItem, hdItem, fourKCutoffItem]);
+
+        // Filter by Resolution = SD
+        var sdResults = await repo.GetPagedAsync(new MediaFilterOptions(ResolutionFilter: "SD"));
+        sdResults.Should().ContainSingle();
+        sdResults[0].Id.Should().Be("sd-cutoff");
+        sdResults[0].Instances[0].Resolution.Should().Be("SD");
+
+        // Filter by Resolution = 1080p
+        var hdResults = await repo.GetPagedAsync(new MediaFilterOptions(ResolutionFilter: "1080p"));
+        hdResults.Should().ContainSingle();
+        hdResults[0].Id.Should().Be("hd-met");
+
+        // Filter by CutoffUnmet = true
+        var cutoffResults = await repo.GetPagedAsync(new MediaFilterOptions(CutoffUnmetFilter: true));
+        cutoffResults.Should().HaveCount(2);
+        cutoffResults.Select(x => x.Id).Should().Contain(["sd-cutoff", "4k-cutoff"]);
+
+        // Combined: SD + CutoffUnmet = true
+        var combined = await repo.GetPagedAsync(new MediaFilterOptions(ResolutionFilter: "SD", CutoffUnmetFilter: true));
+        combined.Should().ContainSingle();
+        combined[0].Id.Should().Be("sd-cutoff");
+    }
+
+    [Fact]
     public async Task AuditRepository_ShouldRecordAndCalculateTotalFreed()
     {
         await _initializer.InitializeAsync();
