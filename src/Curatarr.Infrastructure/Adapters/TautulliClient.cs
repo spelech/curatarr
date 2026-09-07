@@ -137,7 +137,9 @@ public class TautulliClient : ITautulliClient
                     else if (yr.ValueKind == JsonValueKind.String && int.TryParse(yr.GetString(), out var yrParsed)) year = yrParsed;
                 }
 
-                list.Add(new TautulliHistoryItemDto(rk, gprk, prk, title, gpTitle, userId, username, season, date, mediaType, year));
+                var guid = el.TryGetProperty("guid", out var gd) && gd.ValueKind == JsonValueKind.String ? gd.GetString() : null;
+
+                list.Add(new TautulliHistoryItemDto(rk, gprk, prk, title, gpTitle, userId, username, season, date, mediaType, year, guid));
             }
 
             if (batchCount == 0)

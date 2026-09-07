@@ -50,7 +50,7 @@ public class PlexClient : IPlexClient
     public async Task<IReadOnlyList<PlexMetadataItemDto>> GetSectionItemsAsync(ServiceConnection connection, string sectionKey, CancellationToken ct = default)
     {
         var baseUrl = connection.BaseUrl.TrimEnd('/');
-        using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/library/sections/{sectionKey}/all", connection.ApiKey);
+        using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/library/sections/{sectionKey}/all?includeGuids=1", connection.ApiKey);
         using var res = await _httpClient.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
 
@@ -73,6 +73,21 @@ public class PlexClient : IPlexClient
                 var type = el.GetProperty("type").GetString() ?? "";
                 var guid = el.TryGetProperty("guid", out var g) ? g.GetString() : null;
                 var year = el.TryGetProperty("year", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : (int?)null;
+
+                var guidList = new List<string>();
+                if (!string.IsNullOrWhiteSpace(guid)) guidList.Add(guid);
+
+                if (el.TryGetProperty("Guid", out var guidsProp) && guidsProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var ge in guidsProp.EnumerateArray())
+                    {
+                        if (ge.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.String)
+                        {
+                            var idStr = idProp.GetString();
+                            if (!string.IsNullOrWhiteSpace(idStr)) guidList.Add(idStr);
+                        }
+                    }
+                }
 
                 int viewCount = 0;
                 if (el.TryGetProperty("viewCount", out var vc))
@@ -100,7 +115,7 @@ public class PlexClient : IPlexClient
                     }
                 }
 
-                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt));
+                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt, guidList));
             }
         }
 

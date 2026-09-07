@@ -401,4 +401,101 @@ public class CatalogSyncTests : IDisposable
         sunny.WatchStats[0].Username.Should().Be("ginkel900");
         sunny.WatchStats[0].PlayCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task SyncAsync_ShouldCorrelatePlexAndTautulli_ViaExternalGuid_WhenTitlesDiffer()
+    {
+        await _initializer.InitializeAsync();
+
+        var connRadarr = new ServiceConnection
+        {
+            Id = "radarr-1",
+            ConnectionType = ConnectionType.Radarr,
+            Name = "Radarr",
+            BaseUrl = "http://radarr:7878",
+            ApiKey = "key1",
+            IsEnabled = true
+        };
+        var connPlex = new ServiceConnection
+        {
+            Id = "plex-1",
+            ConnectionType = ConnectionType.Plex,
+            Name = "Plex",
+            BaseUrl = "http://plex:32400",
+            ApiKey = "key2",
+            IsEnabled = true
+        };
+        var connTautulli = new ServiceConnection
+        {
+            Id = "tautulli-1",
+            ConnectionType = ConnectionType.Tautulli,
+            Name = "Tautulli",
+            BaseUrl = "http://tautulli:8181",
+            ApiKey = "key3",
+            IsEnabled = true
+        };
+
+        await _connRepo.UpsertAsync(connRadarr);
+        await _connRepo.UpsertAsync(connPlex);
+        await _connRepo.UpsertAsync(connTautulli);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        // Radarr has clean title "Saving Private Ryan" with IMDB ID tt0120815
+        var movie = new RadarrMovieDto(
+            500, "Saving Private Ryan", "saving private ryan", 857, "tt0120815", 1998, true, true, "/movies/Saving Private Ryan", 40_000_000_000, 1
+        );
+        radarrClient.GetMoviesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<RadarrMovieDto>>([movie]));
+
+        // Plex has title with suffix "Saving Private Ryan A" and IMDB GUID
+        plexClient.GetSectionsAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PlexSectionDto>>([
+                new PlexSectionDto("1", "Movies", "movie", null)
+            ]));
+        plexClient.GetSectionItemsAsync(Arg.Any<ServiceConnection>(), "1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PlexMetadataItemDto>>([
+                new PlexMetadataItemDto(
+                    RatingKey: 5925,
+                    Title: "Saving Private Ryan A",
+                    Type: "movie",
+                    Guid: "com.plexapp.agents.imdb://tt0120815?lang=en",
+                    Year: 1998,
+                    Guids: ["imdb://tt0120815", "tmdb://857"]
+                )
+            ]));
+
+        // Tautulli recorded a play under ratingKey 5925
+        var historyItem = new TautulliHistoryItemDto(
+            RatingKey: 5925,
+            GrandparentRatingKey: null,
+            ParentRatingKey: null,
+            Title: "Saving Private Ryan A",
+            GrandparentTitle: null,
+            UserId: "user-steve",
+            Username: "loudrockmusic",
+            SeasonNumber: null,
+            Date: DateTime.UtcNow.AddDays(-1000),
+            MediaType: "movie",
+            Year: 1998
+        );
+        tautulliClient.GetHistoryAsync(Arg.Any<ServiceConnection>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<TautulliHistoryItemDto>>([historyItem]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync(fullSync: true);
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10 });
+        items.Should().ContainSingle();
+
+        var ryan = items[0];
+        ryan.Title.Should().Be("Saving Private Ryan");
+        ryan.PlexRatingKey.Should().Be(5925);
+        ryan.WatchStats.Should().ContainSingle();
+        ryan.WatchStats[0].Username.Should().Be("loudrockmusic");
+        ryan.WatchStats[0].PlayCount.Should().Be(1);
+    }
 }
