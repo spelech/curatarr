@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Curatarr.Core.Adapters;
 using Curatarr.Core.Models;
 using Curatarr.Core.Repositories;
@@ -191,7 +192,57 @@ public class CatalogSyncService : ICatalogSyncService
                 item.TotalSizeBytes = item.Instances.Sum(i => i.SizeBytes);
             }
 
-            // 3. Process Tautulli Watch History
+            // Build normalized lookup maps for fast title matching
+            var normalizedTitleMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
+            var plexRatingKeyMap = new Dictionary<int, MediaItem>();
+
+            foreach (var item in itemMap.Values)
+            {
+                var norm = NormalizeTitle(item.Title);
+                if (!string.IsNullOrEmpty(norm) && !normalizedTitleMap.ContainsKey(norm))
+                {
+                    normalizedTitleMap[norm] = item;
+                }
+
+                if (item.PlexRatingKey.HasValue)
+                {
+                    plexRatingKeyMap[item.PlexRatingKey.Value] = item;
+                }
+            }
+
+            // 3. Process Plex instances (link rating keys and metadata)
+            var plexConns = enabledConnections.Where(c => c.ConnectionType == ConnectionType.Plex).ToList();
+            foreach (var conn in plexConns)
+            {
+                try
+                {
+                    var sections = await _plexClient.GetSectionsAsync(conn, ct);
+                    foreach (var section in sections)
+                    {
+                        var plexItems = await _plexClient.GetSectionItemsAsync(conn, section.Key, ct);
+                        foreach (var pi in plexItems)
+                        {
+                            var norm = NormalizeTitle(pi.Title);
+                            if (normalizedTitleMap.TryGetValue(norm, out var matchedItem))
+                            {
+                                matchedItem.PlexRatingKey = pi.RatingKey;
+                                plexRatingKeyMap[pi.RatingKey] = matchedItem;
+                            }
+                        }
+                    }
+
+                    conn.LastSyncAt = DateTime.UtcNow;
+                    conn.LastStatus = "Synced";
+                    await _connectionRepo.UpsertAsync(conn, ct);
+                }
+                catch (Exception ex)
+                {
+                    conn.LastStatus = $"Error: {ex.Message}";
+                    await _connectionRepo.UpsertAsync(conn, ct);
+                }
+            }
+
+            // 4. Process Tautulli Watch History
             var tautulliConns = enabledConnections.Where(c => c.ConnectionType == ConnectionType.Tautulli).ToList();
             foreach (var conn in tautulliConns)
             {
@@ -203,9 +254,24 @@ public class CatalogSyncService : ICatalogSyncService
                         var showOrMovieTitle = h.GrandparentTitle ?? h.Title;
                         if (string.IsNullOrEmpty(showOrMovieTitle)) continue;
 
-                        var matchedItem = itemMap.Values.FirstOrDefault(i =>
-                            string.Equals(i.Title, showOrMovieTitle, StringComparison.OrdinalIgnoreCase) ||
-                            (h.RatingKey.HasValue && i.PlexRatingKey == h.RatingKey.Value));
+                        MediaItem? matchedItem = null;
+
+                        // 1. Try match by rating key (movie, show, or grandparent rating key)
+                        if (h.RatingKey.HasValue && plexRatingKeyMap.TryGetValue(h.RatingKey.Value, out var byRk))
+                        {
+                            matchedItem = byRk;
+                        }
+                        else if (!string.IsNullOrEmpty(h.GrandparentRatingKey) && int.TryParse(h.GrandparentRatingKey, out var gprkVal) && plexRatingKeyMap.TryGetValue(gprkVal, out var byGprk))
+                        {
+                            matchedItem = byGprk;
+                        }
+
+                        // 2. Fallback to normalized title match
+                        if (matchedItem == null)
+                        {
+                            var norm = NormalizeTitle(showOrMovieTitle);
+                            normalizedTitleMap.TryGetValue(norm, out matchedItem);
+                        }
 
                         if (matchedItem != null)
                         {
@@ -246,7 +312,7 @@ public class CatalogSyncService : ICatalogSyncService
                 }
             }
 
-            // 4. Batch upsert everything
+            // 5. Batch upsert everything
             var allItems = itemMap.Values.ToList();
             await _mediaRepo.UpsertBatchAsync(allItems, ct);
 
@@ -260,5 +326,12 @@ public class CatalogSyncService : ICatalogSyncService
         {
             _syncLock.Release();
         }
+    }
+
+    private static string NormalizeTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return string.Empty;
+        // Strip non-alphanumeric characters for fuzzy resilient title matching
+        return Regex.Replace(title, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
     }
 }

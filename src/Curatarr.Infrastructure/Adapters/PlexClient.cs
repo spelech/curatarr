@@ -62,7 +62,13 @@ public class PlexClient : IPlexClient
         {
             foreach (var el in meta.EnumerateArray())
             {
-                var ratingKey = int.Parse(el.GetProperty("ratingKey").GetString() ?? "0");
+                int ratingKey = 0;
+                if (el.TryGetProperty("ratingKey", out var rkProp))
+                {
+                    if (rkProp.ValueKind == JsonValueKind.Number) ratingKey = rkProp.GetInt32();
+                    else if (rkProp.ValueKind == JsonValueKind.String) int.TryParse(rkProp.GetString(), out ratingKey);
+                }
+
                 var title = el.GetProperty("title").GetString() ?? "";
                 var type = el.GetProperty("type").GetString() ?? "";
                 var guid = el.TryGetProperty("guid", out var g) ? g.GetString() : null;

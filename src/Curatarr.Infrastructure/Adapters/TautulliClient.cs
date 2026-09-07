@@ -50,14 +50,45 @@ public class TautulliClient : ITautulliClient
         var data = doc.RootElement.GetProperty("response").GetProperty("data").GetProperty("data");
         foreach (var el in data.EnumerateArray())
         {
-            int? rk = el.TryGetProperty("rating_key", out var r) && r.ValueKind == JsonValueKind.Number ? r.GetInt32() : (int?)null;
-            var gprk = el.TryGetProperty("grandparent_rating_key", out var gp) ? gp.GetString() : null;
-            var prk = el.TryGetProperty("parent_rating_key", out var p) ? p.GetString() : null;
-            var title = el.TryGetProperty("title", out var t) ? t.GetString() : null;
-            var gpTitle = el.TryGetProperty("grandparent_title", out var gpt) ? gpt.GetString() : null;
-            var userId = el.TryGetProperty("user_id", out var uid) ? uid.ToString() : "";
-            var username = el.TryGetProperty("user", out var u) ? u.GetString() ?? "" : "";
-            int? season = el.TryGetProperty("parent_media_index", out var s) && s.ValueKind == JsonValueKind.Number ? s.GetInt32() : (int?)null;
+            int? rk = null;
+            if (el.TryGetProperty("rating_key", out var r))
+            {
+                if (r.ValueKind == JsonValueKind.Number && r.TryGetInt32(out var rkVal)) rk = rkVal;
+                else if (r.ValueKind == JsonValueKind.String && int.TryParse(r.GetString(), out var rkParsed)) rk = rkParsed;
+            }
+
+            string? gprk = null;
+            if (el.TryGetProperty("grandparent_rating_key", out var gp))
+            {
+                gprk = gp.ValueKind == JsonValueKind.String ? gp.GetString() : gp.ToString();
+                if (string.IsNullOrWhiteSpace(gprk)) gprk = null;
+            }
+
+            string? prk = null;
+            if (el.TryGetProperty("parent_rating_key", out var p))
+            {
+                prk = p.ValueKind == JsonValueKind.String ? p.GetString() : p.ToString();
+                if (string.IsNullOrWhiteSpace(prk)) prk = null;
+            }
+
+            var title = el.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null;
+            var gpTitle = el.TryGetProperty("grandparent_title", out var gpt) && gpt.ValueKind == JsonValueKind.String ? gpt.GetString() : null;
+            if (string.IsNullOrWhiteSpace(gpTitle)) gpTitle = null;
+
+            var userId = "";
+            if (el.TryGetProperty("user_id", out var uid))
+            {
+                userId = uid.ValueKind == JsonValueKind.String ? (uid.GetString() ?? "") : uid.ToString();
+            }
+
+            var username = el.TryGetProperty("user", out var u) && u.ValueKind == JsonValueKind.String ? (u.GetString() ?? "") : "";
+
+            int? season = null;
+            if (el.TryGetProperty("parent_media_index", out var s))
+            {
+                if (s.ValueKind == JsonValueKind.Number && s.TryGetInt32(out var sVal)) season = sVal;
+                else if (s.ValueKind == JsonValueKind.String && int.TryParse(s.GetString(), out var sParsed)) season = sParsed;
+            }
             
             long dateUnix = el.TryGetProperty("date", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetInt64() : 0;
             var date = DateTimeOffset.FromUnixTimeSeconds(dateUnix).UtcDateTime;
