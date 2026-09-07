@@ -16,6 +16,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { MediaItem } from '../types/api';
+import { getInstanceTitle, getBadgeStyle } from '../utils/badgeUtils';
 
 interface MediaDetailModalProps {
   item: MediaItem | null;
@@ -210,19 +211,17 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-white">
-                        {inst.qualityProfileName || inst.connectionId}
+                        {getInstanceTitle(inst, isSeries)}
                       </span>
-                      {inst.resolution && (
+                      {inst.resolution ? (
                         <span
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            inst.resolution === 'SD'
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                              : inst.resolution === '4K'
-                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          }`}
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${getBadgeStyle(inst.resolution, false)}`}
                         >
                           {inst.resolution}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800/40 text-slate-400 border border-dashed border-slate-700">
+                          Missing File
                         </span>
                       )}
                       {inst.cutoffUnmet ? (

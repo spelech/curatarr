@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Film, Tv, Shield, Trash2, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { SeasonDrawer } from './SeasonDrawer';
+import { getItemBadges } from '../utils/badgeUtils';
 
 interface MediaCardProps {
   item: MediaItem;
@@ -43,9 +44,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     return `${Math.floor(daysAgo / 365)}y ago`;
   };
 
-  // Distinct tier tags across instances
-  const tierTags = Array.from(new Set(item.instances.map((i) => i.qualityProfileName || 'Default')));
-  const resolutions = Array.from(new Set(item.instances.map((i) => i.resolution).filter(Boolean))) as string[];
+  const badges = getItemBadges(item);
   const hasCutoffUnmet = item.instances.some((i) => i.cutoffUnmet);
 
   return (
@@ -66,30 +65,12 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             />
             {/* Instance tier tags & Resolution & Cutoff */}
             <div className="flex flex-wrap items-center gap-1">
-              {tierTags.map((tag) => (
+              {badges.map((b) => (
                 <span
-                  key={tag}
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    tag.toLowerCase().includes('4k')
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                  }`}
+                  key={b.id}
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${b.style}`}
                 >
-                  {tag}
-                </span>
-              ))}
-              {resolutions.map((res) => (
-                <span
-                  key={res}
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    res === 'SD'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      : res === '4K'
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  }`}
-                >
-                  {res}
+                  {b.label}
                 </span>
               ))}
               {hasCutoffUnmet && (
