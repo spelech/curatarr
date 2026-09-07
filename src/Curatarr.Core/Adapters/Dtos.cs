@@ -63,7 +63,9 @@ public record TautulliHistoryItemDto(
     string UserId,
     string Username,
     int? SeasonNumber,
-    DateTime Date
+    DateTime Date,
+    string? MediaType = null,
+    int? Year = null
 );
 
 public record PlexSectionDto(
@@ -78,7 +80,9 @@ public record PlexMetadataItemDto(
     string Title,
     string Type,
     string? Guid,
-    int? Year
+    int? Year,
+    int ViewCount = 0,
+    DateTime? LastViewedAt = null
 );
 
 public record OverseerrRequestDto(
