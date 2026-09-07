@@ -26,6 +26,10 @@ def check_markdown_links(root_dir: Path) -> bool:
             target_path = link.split("#")[0]
             if not target_path:
                 continue
+            if target_path.startswith("/"):
+                print(f"❌ Absolute filesystem path forbidden in markdown ({md_file.relative_to(root_dir)}): [{text}]({link})")
+                has_errors = True
+                continue
             resolved = (md_file.parent / target_path).resolve()
             if not resolved.exists():
                 print(f"❌ Broken link in {md_file.relative_to(root_dir)}: [{text}]({link})")

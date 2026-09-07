@@ -2,8 +2,8 @@
 
 Mandatory architectural guidelines, quality standards, and execution rules for AI coding assistants working in **Curatarr**.
 
-> **Archetype**: [Controls-Grade Fullstack (.NET + React + SQL)](/containers/dev/AgenticEngineeringToolbelt/archetypes/controls-fullstack-dotnet-react.md)  
-> **Master Reference**: [AgenticEngineeringToolbelt](/containers/dev/AgenticEngineeringToolbelt)
+> **Archetype**: [Controls-Grade Fullstack (.NET + React + SQL)](https://github.com/spelech/AgenticEngineeringToolbelt/blob/main/archetypes/controls-fullstack-dotnet-react.md)  
+> **Master Reference**: [AgenticEngineeringToolbelt](https://github.com/spelech/AgenticEngineeringToolbelt)
 
 ---
 

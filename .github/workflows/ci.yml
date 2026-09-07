@@ -107,7 +107,7 @@ jobs:
 
       - name: Start server & probe health
         run: |
-          dotnet run --project src/Curatarr.Api/Curatarr.Api.csproj --configuration Release --no-build &
+          dotnet run --project src/Curatarr.Api/Curatarr.Api.csproj --configuration Release --no-build --urls "http://localhost:8080" &
           APP_PID=$!
           echo "Server started with PID $APP_PID"
 

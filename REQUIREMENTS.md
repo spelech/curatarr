@@ -1,6 +1,6 @@
 # 📋 Software Requirements Specification: Curatarr
 
-This specification defines the functional requirements and automated test traceability matrix for **Curatarr**, conforming to the [Controls-Grade Fullstack Archetype](file:///containers/dev/AgenticEngineeringToolbelt/archetypes/controls-fullstack-dotnet-react.md).
+This specification defines the functional requirements and automated test traceability matrix for **Curatarr**, conforming to the [Controls-Grade Fullstack Archetype](https://github.com/spelech/AgenticEngineeringToolbelt/blob/main/archetypes/controls-fullstack-dotnet-react.md).
 
 ---
 
