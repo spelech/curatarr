@@ -8,6 +8,7 @@ interface TableViewProps {
   onToggleSelect: (id: string) => void;
   onToggleProtect: (id: string, isProtected: boolean) => void;
   onPrune: (item: MediaItem) => void;
+  onOpenDetail: (item: MediaItem) => void;
 }
 
 export const TableView: React.FC<TableViewProps> = ({
@@ -16,6 +17,7 @@ export const TableView: React.FC<TableViewProps> = ({
   onToggleSelect,
   onToggleProtect,
   onPrune,
+  onOpenDetail,
 }) => {
   const formatSize = (bytes: number) => {
     const gb = bytes / (1024 * 1024 * 1024);
@@ -73,7 +75,10 @@ export const TableView: React.FC<TableViewProps> = ({
                   />
                 </td>
                 <td className="p-3 font-semibold text-white">
-                  <div className="flex items-center gap-2">
+                  <div
+                    onClick={() => onOpenDetail(item)}
+                    className="flex items-center gap-2 cursor-pointer hover:text-sky-300 transition"
+                  >
                     <span>{item.title}</span>
                     {item.year && <span className="text-slate-500 font-normal">({item.year})</span>}
                   </div>

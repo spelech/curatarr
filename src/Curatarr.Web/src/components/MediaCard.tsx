@@ -9,6 +9,7 @@ interface MediaCardProps {
   onToggleSelect: () => void;
   onToggleProtect: () => void;
   onPrune: (seasonNumber?: number) => void;
+  onOpenDetail: () => void;
 }
 
 export const MediaCard: React.FC<MediaCardProps> = ({
@@ -17,6 +18,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   onToggleSelect,
   onToggleProtect,
   onPrune,
+  onOpenDetail,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -127,20 +129,23 @@ export const MediaCard: React.FC<MediaCardProps> = ({
           </div>
         </div>
 
-        {/* Media Info: Icon, Title, Year */}
-        <div>
+        {/* Media Info: Icon, Title, Year (clickable) */}
+        <div onClick={onOpenDetail} className="cursor-pointer group/title">
           <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-0.5">
             {isSeries ? <Tv className="w-3.5 h-3.5 text-sky-400" /> : <Film className="w-3.5 h-3.5 text-amber-400" />}
             <span>{isSeries ? 'Series' : 'Movie'}</span>
             {item.year && <span>• {item.year}</span>}
           </div>
-          <h3 className="text-sm font-semibold text-white tracking-tight line-clamp-1" title={item.title}>
+          <h3 className="text-sm font-semibold text-white tracking-tight line-clamp-1 group-hover/title:text-sky-300 transition" title={item.title}>
             {item.title}
           </h3>
         </div>
 
-        {/* Stats Row: Size on disk, Watch Info */}
-        <div className="bg-slate-950/60 border border-slate-800/60 rounded-lg p-2.5 flex items-center justify-between text-xs">
+        {/* Stats Row: Size on disk, Watch Info (clickable) */}
+        <div
+          onClick={onOpenDetail}
+          className="bg-slate-950/60 border border-slate-800/60 hover:border-slate-700/80 rounded-lg p-2.5 flex items-center justify-between text-xs cursor-pointer transition"
+        >
           <div>
             <div className="text-[10px] text-slate-500">Storage</div>
             <div className="font-mono font-medium text-slate-200">{formatSize(item.totalSizeBytes)}</div>
