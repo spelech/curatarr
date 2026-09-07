@@ -27,7 +27,10 @@ export const TableView: React.FC<TableViewProps> = ({
       .map((w) => (w.lastPlayedAt ? new Date(w.lastPlayedAt).getTime() : 0))
       .reduce((max, t) => Math.max(max, t), 0);
 
-    if (lastPlayed === 0) return 'Never';
+    if (lastPlayed === 0) {
+      const totalPlays = item.watchStats.reduce((sum, w) => sum + w.playCount, 0);
+      return totalPlays > 0 ? 'Watched' : 'Never';
+    }
     const daysAgo = Math.floor((Date.now() - lastPlayed) / (1000 * 60 * 60 * 24));
     if (daysAgo < 30) return `${daysAgo}d ago`;
     if (daysAgo < 365) return `${Math.floor(daysAgo / 30)}mo ago`;

@@ -32,7 +32,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
     .reduce((max, t) => Math.max(max, t), 0);
 
   const formatLastPlayed = () => {
-    if (lastPlayed === 0) return 'Never Watched';
+    if (lastPlayed === 0) return totalPlays > 0 ? 'Watched' : 'Never Watched';
     const daysAgo = Math.floor((Date.now() - lastPlayed) / (1000 * 60 * 60 * 24));
     if (daysAgo === 0) return 'Watched today';
     if (daysAgo === 1) return 'Watched yesterday';
