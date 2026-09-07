@@ -12,19 +12,22 @@ public class CuratarrMcpRegistry
     private readonly IPruneExecutionService _pruneService;
     private readonly ICatalogSyncService _syncService;
     private readonly IConnectionRepository _connRepo;
+    private readonly IServiceDiscoveryService _discoveryService;
 
     public CuratarrMcpRegistry(
         ISmartCategoryEngine categoryEngine,
         IMediaRepository mediaRepo,
         IPruneExecutionService pruneService,
         ICatalogSyncService syncService,
-        IConnectionRepository connRepo)
+        IConnectionRepository connRepo,
+        IServiceDiscoveryService discoveryService)
     {
         _categoryEngine = categoryEngine;
         _mediaRepo = mediaRepo;
         _pruneService = pruneService;
         _syncService = syncService;
         _connRepo = connRepo;
+        _discoveryService = discoveryService;
     }
 
     public object[] GetTools()
@@ -105,6 +108,16 @@ public class CuratarrMcpRegistry
                     {
                         fullSync = new { type = "boolean", description = "Force full re-sync", @default = false }
                     }
+                }
+            },
+            new
+            {
+                name = "curatarr_discover_services",
+                description = "Auto-discover available Sonarr, Radarr, Tautulli, Plex, and Overseerr services across the Docker environment and network.",
+                inputSchema = new
+                {
+                    type = "object",
+                    properties = new { }
                 }
             }
         ];
@@ -254,6 +267,22 @@ public class CuratarrMcpRegistry
                             {
                                 type = "text",
                                 text = "Catalog synchronization triggered in background."
+                            }
+                        }
+                    };
+                }
+
+                case "curatarr_discover_services":
+                {
+                    var services = await _discoveryService.DiscoverServicesAsync(ct);
+                    return new
+                    {
+                        content = new[]
+                        {
+                            new
+                            {
+                                type = "text",
+                                text = JsonSerializer.Serialize(services, new JsonSerializerOptions { WriteIndented = true })
                             }
                         }
                     };

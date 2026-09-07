@@ -1,12 +1,16 @@
 import { create } from 'zustand';
-import { ServiceConnection } from '../types/api';
+import { DiscoveredService, ServiceConnection } from '../types/api';
 
 interface ConnectionState {
   connections: ServiceConnection[];
   isLoading: boolean;
+  discoveredServices: DiscoveredService[];
+  isScanning: boolean;
+  scanError?: string;
   testResults: Record<string, { success: boolean; version?: string; message?: string; latencyMs: number }>;
 
   fetchConnections: () => Promise<void>;
+  discoverServices: () => Promise<DiscoveredService[]>;
   saveConnection: (conn: Partial<ServiceConnection>) => Promise<boolean>;
   deleteConnection: (id: string) => Promise<boolean>;
   testConnection: (conn: Partial<ServiceConnection>) => Promise<{ success: boolean; version?: string; message?: string; latencyMs: number }>;
@@ -15,6 +19,9 @@ interface ConnectionState {
 export const useConnectionStore = create<ConnectionState>((set, get) => ({
   connections: [],
   isLoading: false,
+  discoveredServices: [],
+  isScanning: false,
+  scanError: undefined,
   testResults: {},
 
   fetchConnections: async () => {
@@ -29,6 +36,25 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       }
     } catch {
       set({ isLoading: false });
+    }
+  },
+
+  discoverServices: async () => {
+    set({ isScanning: true, scanError: undefined });
+    try {
+      const res = await fetch('/api/v1/discovery');
+      if (res.ok) {
+        const data: DiscoveredService[] = await res.json();
+        set({ discoveredServices: data, isScanning: false });
+        return data;
+      } else {
+        set({ isScanning: false, scanError: `Failed to scan: HTTP ${res.status}` });
+        return [];
+      }
+    } catch (e: unknown) {
+      const msg = (e as Error).message;
+      set({ isScanning: false, scanError: msg });
+      return [];
     }
   },
 

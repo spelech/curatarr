@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, Plus, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
+import { Settings, Plus, Trash2, CheckCircle2, XCircle, X, Radio, Loader2, Sparkles } from 'lucide-react';
 import { useConnectionStore } from '../stores/useConnectionStore';
-import { ServiceConnection } from '../types/api';
+import { DiscoveredService, ServiceConnection } from '../types/api';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -9,16 +9,43 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { connections, fetchConnections, saveConnection, deleteConnection, testConnection, testResults } =
-    useConnectionStore();
+  const {
+    connections,
+    fetchConnections,
+    saveConnection,
+    deleteConnection,
+    testConnection,
+    testResults,
+    discoveredServices,
+    isScanning,
+    scanError,
+    discoverServices,
+  } = useConnectionStore();
 
   const [editingConn, setEditingConn] = useState<Partial<ServiceConnection> | null>(null);
+  const [hasScanned, setHasScanned] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchConnections();
     }
   }, [isOpen, fetchConnections]);
+
+  const handleScan = async () => {
+    setHasScanned(true);
+    await discoverServices();
+  };
+
+  const handleAddDiscovered = (discovered: DiscoveredService) => {
+    setEditingConn({
+      connectionType: discovered.connectionType,
+      name: discovered.name,
+      baseUrl: discovered.baseUrl,
+      apiKey: '',
+      tierTag: discovered.tierTag || '',
+      isEnabled: true,
+    });
+  };
 
   if (!isOpen) return null;
 
@@ -149,21 +176,126 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
             </form>
           ) : (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
+            <div className="space-y-4">
+              {/* Auto-Discovery Section */}
+              <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-md text-indigo-400">
+                      <Radio className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-white text-xs flex items-center gap-1.5">
+                        Auto-Discovery
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-medium">
+                          Docker & Network
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Scan Docker containers and candidate media network hosts
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleScan}
+                    disabled={isScanning}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 text-white text-xs font-medium transition shadow-sm"
+                  >
+                    {isScanning ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Scan Services
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {scanError && (
+                  <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded p-2">
+                    {scanError}
+                  </div>
+                )}
+
+                {hasScanned && !isScanning && discoveredServices.length === 0 && (
+                  <div className="p-3 border border-slate-800 rounded-lg text-center text-[11px] text-slate-500">
+                    No unconfigured services detected on Docker socket or default network hostnames.
+                  </div>
+                )}
+
+                {discoveredServices.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <div className="text-[11px] font-medium text-slate-400">
+                      Detected Services ({discoveredServices.length})
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {discoveredServices.map((svc) => (
+                        <div
+                          key={svc.id}
+                          className="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between gap-2"
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-white text-xs">{svc.name}</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono">
+                                {getTypeName(svc.connectionType)} {svc.tierTag ? `(${svc.tierTag})` : ''}
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-medium">
+                                {svc.discoverySource}
+                              </span>
+                              {svc.isConfigured && (
+                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium">
+                                  Configured
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-slate-500 font-mono text-[11px]">
+                              {svc.baseUrl}
+                              {svc.containerName && ` • container: ${svc.containerName}`}
+                            </div>
+                          </div>
+
+                          <div>
+                            {svc.isConfigured ? (
+                              <span className="text-[11px] text-emerald-400 font-medium px-2 py-1">
+                                Already Added
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleAddDiscovered(svc)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 text-xs font-medium transition"
+                              >
+                                <Plus className="w-3 h-3" />
+                                Add Connection
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
                 <span className="text-xs font-semibold text-slate-300">Active Connections ({connections.length})</span>
                 <button
                   onClick={() => setEditingConn({ connectionType: 0, isEnabled: true, name: '', baseUrl: '', apiKey: '' })}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-600/20 text-sky-300 border border-sky-500/30 hover:bg-sky-600/30 text-xs font-medium transition"
                 >
                   <Plus className="w-3 h-3" />
-                  Add Connection
+                  Add Manual Connection
                 </button>
               </div>
 
               {connections.length === 0 ? (
                 <div className="p-8 border border-dashed border-slate-800 rounded-xl text-center text-xs text-slate-500">
-                  No connections configured yet. Click "Add Connection" to connect your first instance.
+                  No connections configured yet. Click "Scan Services" above or "Add Manual Connection".
                 </div>
               ) : (
                 connections.map((c) => {

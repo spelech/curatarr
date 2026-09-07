@@ -38,6 +38,7 @@ builder.Services.AddHttpClient<IConnectionTester, ConnectionTester>(client => cl
 builder.Services.AddSingleton<ISmartCategoryEngine, SmartCategoryEngine>();
 builder.Services.AddSingleton<IPruneExecutionService, PruneExecutionService>();
 builder.Services.AddSingleton<ICatalogSyncService, CatalogSyncService>();
+builder.Services.AddSingleton<IServiceDiscoveryService, ServiceDiscoveryService>();
 builder.Services.AddSingleton<CuratarrMcpRegistry>();
 
 // Background Sync Worker
@@ -218,6 +219,7 @@ app.MapPost("/mcp/messages", async (HttpContext context, CuratarrMcpRegistry reg
 app.MapCatalogEndpoints();
 app.MapConnectionEndpoints();
 app.MapPruneAndSyncEndpoints();
+app.MapDiscoveryEndpoints();
 
 // SPA Fallback for React UI
 app.MapFallbackToFile("index.html");
