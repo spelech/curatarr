@@ -322,7 +322,7 @@ public class CatalogSyncService : ICatalogSyncService
             {
                 try
                 {
-                    var history = await _tautulliClient.GetHistoryAsync(conn, length: 10000, ct: ct);
+                    var history = await _tautulliClient.GetHistoryAsync(conn, length: 0, ct: ct);
                     foreach (var h in history)
                     {
                         var isEpisode = string.Equals(h.MediaType, "episode", StringComparison.OrdinalIgnoreCase)
@@ -345,11 +345,11 @@ public class CatalogSyncService : ICatalogSyncService
                             matchedItem = byRk;
                         }
 
-                        // 2. Fallback to typed title match
+                        // 2. Fallback to typed title match (for movies, match with year if available; for episodes, match show title)
                         if (matchedItem == null)
                         {
                             var norm = NormalizeTitle(showOrMovieTitle);
-                            if (h.Year.HasValue && exactItemMap.TryGetValue($"{(int)expectedType}:{norm}:{h.Year.Value}", out var exact))
+                            if (!isEpisode && h.Year.HasValue && exactItemMap.TryGetValue($"{(int)expectedType}:{norm}:{h.Year.Value}", out var exact))
                             {
                                 matchedItem = exact;
                             }

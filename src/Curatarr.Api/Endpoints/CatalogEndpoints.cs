@@ -13,7 +13,8 @@ public static class CatalogEndpoints
 
         group.MapGet("/categories", async (ISmartCategoryEngine engine, string? userId, CancellationToken ct) =>
         {
-            var summaries = await engine.GetSummariesAsync(userId, ct);
+            var cleanUserId = string.IsNullOrWhiteSpace(userId) ? null : userId;
+            var summaries = await engine.GetSummariesAsync(cleanUserId, ct);
             return Results.Ok(summaries);
         });
 
@@ -38,9 +39,10 @@ public static class CatalogEndpoints
                 _ => null
             };
 
+            var cleanUserId = string.IsNullOrWhiteSpace(userId) ? null : userId;
             var options = new MediaFilterOptions(
                 CategoryId: category,
-                UserIdFilter: userId,
+                UserIdFilter: cleanUserId,
                 MediaTypeFilter: mType,
                 SearchQuery: search,
                 ResolutionFilter: resolution,

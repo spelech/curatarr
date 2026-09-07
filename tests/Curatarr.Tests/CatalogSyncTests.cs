@@ -330,4 +330,75 @@ public class CatalogSyncTests : IDisposable
         showItem.WatchStats[0].SeasonNumber.Should().Be(1);
         showItem.WatchStats[0].PlayCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task SyncAsync_ShouldMatchTvShow_WhenEpisodeAirYearDiffersFromSeriesPremiereYear()
+    {
+        await _initializer.InitializeAsync();
+
+        var connSonarr = new ServiceConnection
+        {
+            Id = "sonarr-1",
+            ConnectionType = ConnectionType.Sonarr,
+            Name = "Sonarr",
+            BaseUrl = "http://sonarr:8989",
+            ApiKey = "key1",
+            IsEnabled = true
+        };
+        var connTautulli = new ServiceConnection
+        {
+            Id = "tautulli-1",
+            ConnectionType = ConnectionType.Tautulli,
+            Name = "Tautulli",
+            BaseUrl = "http://tautulli:8181",
+            ApiKey = "key2",
+            IsEnabled = true
+        };
+
+        await _connRepo.UpsertAsync(connSonarr);
+        await _connRepo.UpsertAsync(connTautulli);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        // Series premiere year is 2005
+        var show = new SonarrSeriesDto(
+            100, "It's Always Sunny in Philadelphia", "its always sunny in philadelphia", 75805, "tt0472954", 2005, true, "/tv/Sunny", 50_000_000_000, 180, 180, 18,
+            [new SonarrSeasonDto(18, true, 2_000_000_000, 8, 8)]
+        );
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SonarrSeriesDto>>([show]));
+
+        // Episode history where Year is 2026 (the episode air year, NOT the 2005 premiere year)
+        var historyItem = new TautulliHistoryItemDto(
+            RatingKey: 99999,
+            GrandparentRatingKey: "88888", // Not in Plex rating key map
+            ParentRatingKey: "77777",
+            Title: "2026: A Virtual Insanity",
+            GrandparentTitle: "It's Always Sunny in Philadelphia",
+            UserId: "user-ginkel",
+            Username: "ginkel900",
+            SeasonNumber: 18,
+            Date: DateTime.UtcNow.AddDays(-2),
+            MediaType: "episode",
+            Year: 2026
+        );
+        tautulliClient.GetHistoryAsync(Arg.Any<ServiceConnection>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<TautulliHistoryItemDto>>([historyItem]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync(fullSync: true);
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10 });
+        items.Should().ContainSingle();
+
+        var sunny = items[0];
+        sunny.Title.Should().Be("It's Always Sunny in Philadelphia");
+        sunny.Year.Should().Be(2005);
+        sunny.WatchStats.Should().ContainSingle();
+        sunny.WatchStats[0].Username.Should().Be("ginkel900");
+        sunny.WatchStats[0].PlayCount.Should().Be(1);
+    }
 }

@@ -27,7 +27,7 @@ public interface IRadarrClient
 public interface ITautulliClient
 {
     Task<IReadOnlyList<TautulliUserDto>> GetUsersAsync(ServiceConnection connection, CancellationToken ct = default);
-    Task<IReadOnlyList<TautulliHistoryItemDto>> GetHistoryAsync(ServiceConnection connection, int length = 5000, CancellationToken ct = default);
+    Task<IReadOnlyList<TautulliHistoryItemDto>> GetHistoryAsync(ServiceConnection connection, int length = 0, CancellationToken ct = default);
 }
 
 public interface IPlexClient

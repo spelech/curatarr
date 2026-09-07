@@ -75,15 +75,29 @@ public class PlexClient : IPlexClient
                 var year = el.TryGetProperty("year", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : (int?)null;
 
                 int viewCount = 0;
-                if (el.TryGetProperty("viewCount", out var vc) && vc.ValueKind == JsonValueKind.Number)
+                if (el.TryGetProperty("viewCount", out var vc))
                 {
-                    viewCount = vc.GetInt32();
+                    if (vc.ValueKind == JsonValueKind.Number && vc.TryGetInt32(out var vcNum)) viewCount = vcNum;
+                    else if (vc.ValueKind == JsonValueKind.String && int.TryParse(vc.GetString(), out var vcParsed)) viewCount = vcParsed;
+                }
+
+                if (viewCount == 0 && el.TryGetProperty("viewedLeafCount", out var vlc))
+                {
+                    if (vlc.ValueKind == JsonValueKind.Number && vlc.TryGetInt32(out var vlcNum)) viewCount = vlcNum;
+                    else if (vlc.ValueKind == JsonValueKind.String && int.TryParse(vlc.GetString(), out var vlcParsed)) viewCount = vlcParsed;
                 }
 
                 DateTime? lastViewedAt = null;
-                if (el.TryGetProperty("lastViewedAt", out var lva) && lva.ValueKind == JsonValueKind.Number)
+                if (el.TryGetProperty("lastViewedAt", out var lva))
                 {
-                    lastViewedAt = DateTimeOffset.FromUnixTimeSeconds(lva.GetInt64()).UtcDateTime;
+                    if (lva.ValueKind == JsonValueKind.Number && lva.TryGetInt64(out var lvaNum))
+                    {
+                        lastViewedAt = DateTimeOffset.FromUnixTimeSeconds(lvaNum).UtcDateTime;
+                    }
+                    else if (lva.ValueKind == JsonValueKind.String && long.TryParse(lva.GetString(), out var lvaParsed))
+                    {
+                        lastViewedAt = DateTimeOffset.FromUnixTimeSeconds(lvaParsed).UtcDateTime;
+                    }
                 }
 
                 list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt));
