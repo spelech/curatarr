@@ -89,3 +89,17 @@ export interface TautulliUser {
   username: string;
   friendlyName?: string;
 }
+
+export interface DiscoveredService {
+  id: string;
+  connectionType: number; // 0: Sonarr, 1: Radarr, 2: Tautulli, 3: Plex, 4: Overseerr
+  name: string;
+  baseUrl: string;
+  discoverySource: string; // "Docker" | "Network Probe"
+  isConfigured: boolean;
+  tierTag?: string;
+  containerName?: string;
+  image?: string;
+  port?: number;
+  details?: string;
+}
