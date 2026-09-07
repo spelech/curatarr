@@ -120,6 +120,23 @@ public class DatabaseInitializer
 
         await connection.ExecuteAsync(schemaSql);
 
+        // Migration: Ensure resolution and cutoff_unmet columns exist on existing media_instances before creating indexes
+        var columns = (await connection.QueryAsync<dynamic>("PRAGMA table_info(media_instances);")).ToList();
+        var columnNames = new HashSet<string>(
+            columns.Select(c => ((IDictionary<string, object>)c)["name"]?.ToString() ?? ""),
+            StringComparer.OrdinalIgnoreCase
+        );
+
+        if (!columnNames.Contains("cutoff_unmet"))
+        {
+            await connection.ExecuteAsync("ALTER TABLE media_instances ADD COLUMN cutoff_unmet INTEGER NOT NULL DEFAULT 0;");
+        }
+
+        if (!columnNames.Contains("resolution"))
+        {
+            await connection.ExecuteAsync("ALTER TABLE media_instances ADD COLUMN resolution TEXT;");
+        }
+
         // Deduplicate any historical orphaned duplicates before applying UNIQUE constraints
         await connection.ExecuteAsync(@"
             DELETE FROM media_instances WHERE rowid NOT IN (
@@ -142,13 +159,5 @@ public class DatabaseInitializer
         CREATE INDEX IF NOT EXISTS idx_instances_cutoff ON media_instances(cutoff_unmet);
         ";
         await connection.ExecuteAsync(uniqueIndexesSql);
-
-        // Migration: Ensure resolution column exists on existing media_instances
-        var columns = await connection.QueryAsync<dynamic>("PRAGMA table_info(media_instances);");
-        var hasResolution = columns.Any(c => string.Equals(((IDictionary<string, object>)c)["name"]?.ToString(), "resolution", StringComparison.OrdinalIgnoreCase));
-        if (!hasResolution)
-        {
-            await connection.ExecuteAsync("ALTER TABLE media_instances ADD COLUMN resolution TEXT;");
-        }
     }
 }
