@@ -111,6 +111,8 @@ export interface CuratarrSettings {
   seriesEpisodeSpaceHogThresholdBytes: number;
   staleDays: number;
   abandonedDays: number;
+  syncIntervalHours: number;
+  catalogBatchSize: number;
   movieSpaceHogGb: number;
   movie4kSpaceHogGb: number;
   seriesEpisodeSpaceHogGb: number;

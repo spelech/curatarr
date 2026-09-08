@@ -46,6 +46,8 @@ public class SettingsAndThresholdTests : IDisposable
         defaults.SeriesEpisodeSpaceHogGb.Should().Be(2.5);
         defaults.StaleDays.Should().Be(180);
         defaults.AbandonedDays.Should().Be(90);
+        defaults.SyncIntervalHours.Should().Be(1);
+        defaults.CatalogBatchSize.Should().Be(50);
 
         // Update settings
         var updated = defaults with
@@ -54,7 +56,9 @@ public class SettingsAndThresholdTests : IDisposable
             Movie4kSpaceHogGb = 60.0,
             SeriesEpisodeSpaceHogGb = 4.0,
             StaleDays = 365,
-            AbandonedDays = 120
+            AbandonedDays = 120,
+            SyncIntervalHours = 4,
+            CatalogBatchSize = 100
         };
         await _settingsRepo.SaveSettingsAsync(updated);
 
@@ -65,6 +69,8 @@ public class SettingsAndThresholdTests : IDisposable
         reloaded.SeriesEpisodeSpaceHogGb.Should().Be(4.0);
         reloaded.StaleDays.Should().Be(365);
         reloaded.AbandonedDays.Should().Be(120);
+        reloaded.SyncIntervalHours.Should().Be(4);
+        reloaded.CatalogBatchSize.Should().Be(100);
     }
 
     [Fact]

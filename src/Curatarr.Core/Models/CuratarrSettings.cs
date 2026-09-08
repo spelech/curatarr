@@ -11,6 +11,10 @@ public record CuratarrSettings
     public int StaleDays { get; init; } = 180;
     public int AbandonedDays { get; init; } = 90;
 
+    // Background Sync schedule & pagination defaults
+    public int SyncIntervalHours { get; init; } = 1;
+    public int CatalogBatchSize { get; init; } = 50;
+
     // Helper conversion properties for API serialization
     public double MovieSpaceHogGb
     {

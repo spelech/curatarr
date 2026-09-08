@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { RotateCcw, Save, Loader2, CheckCircle2, Film, Tv, Clock, HardDrive } from 'lucide-react';
+import { RotateCcw, Save, Loader2, CheckCircle2, Film, Tv, Clock, HardDrive, RefreshCw } from 'lucide-react';
 import { useSettingsStore, DEFAULT_SETTINGS } from '../stores/useSettingsStore';
 import { useCatalogStore } from '../stores/useCatalogStore';
 
@@ -12,6 +12,8 @@ export const ThresholdSettingsTab: React.FC = () => {
   const [seriesEpisodeSpaceHogGb, setSeriesEpisodeSpaceHogGb] = useState(DEFAULT_SETTINGS.seriesEpisodeSpaceHogGb);
   const [staleDays, setStaleDays] = useState(DEFAULT_SETTINGS.staleDays);
   const [abandonedDays, setAbandonedDays] = useState(DEFAULT_SETTINGS.abandonedDays);
+  const [syncIntervalHours, setSyncIntervalHours] = useState(DEFAULT_SETTINGS.syncIntervalHours);
+  const [catalogBatchSize, setCatalogBatchSize] = useState(DEFAULT_SETTINGS.catalogBatchSize);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
@@ -25,6 +27,8 @@ export const ThresholdSettingsTab: React.FC = () => {
       setSeriesEpisodeSpaceHogGb(settings.seriesEpisodeSpaceHogGb);
       setStaleDays(settings.staleDays);
       setAbandonedDays(settings.abandonedDays);
+      setSyncIntervalHours(settings.syncIntervalHours ?? DEFAULT_SETTINGS.syncIntervalHours);
+      setCatalogBatchSize(settings.catalogBatchSize ?? DEFAULT_SETTINGS.catalogBatchSize);
     }
   }, [settings]);
 
@@ -38,6 +42,8 @@ export const ThresholdSettingsTab: React.FC = () => {
       seriesEpisodeSpaceHogThresholdBytes: Math.round(seriesEpisodeSpaceHogGb * 1024 * 1024 * 1024),
       staleDays,
       abandonedDays,
+      syncIntervalHours,
+      catalogBatchSize,
       movieSpaceHogGb,
       movie4kSpaceHogGb,
       seriesEpisodeSpaceHogGb,
@@ -58,6 +64,8 @@ export const ThresholdSettingsTab: React.FC = () => {
     setSeriesEpisodeSpaceHogGb(DEFAULT_SETTINGS.seriesEpisodeSpaceHogGb);
     setStaleDays(DEFAULT_SETTINGS.staleDays);
     setAbandonedDays(DEFAULT_SETTINGS.abandonedDays);
+    setSyncIntervalHours(DEFAULT_SETTINGS.syncIntervalHours);
+    setCatalogBatchSize(DEFAULT_SETTINGS.catalogBatchSize);
   };
 
   if (isLoading && !settings) {
@@ -205,6 +213,63 @@ export const ThresholdSettingsTab: React.FC = () => {
             </div>
             <p className="text-[10px] text-slate-500 pt-1">
               Days since last episode played for in-progress series (Default: 90 days).
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* System Sync Schedule & Performance Section */}
+      <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-4">
+        <div className="flex items-center gap-2 text-white font-semibold border-b border-slate-800 pb-2">
+          <RefreshCw className="w-4 h-4 text-emerald-400" />
+          <span>System Schedule & Performance</span>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Configure periodic background library synchronization and infinite virtual scrolling batch limits.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+          {/* Sync Interval */}
+          <div className="space-y-1 bg-slate-900/60 border border-slate-800 p-3 rounded-lg">
+            <label className="text-slate-300 font-medium flex items-center gap-1.5">
+              <span>Background Sync Interval</span>
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                step="1"
+                min="1"
+                max="168"
+                value={syncIntervalHours}
+                onChange={(e) => setSyncIntervalHours(parseInt(e.target.value) || 1)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-md px-2.5 py-1.5 text-white font-mono focus:border-sky-500 focus:outline-none"
+              />
+              <span className="text-[11px] font-mono text-slate-400 shrink-0">Hours</span>
+            </div>
+            <p className="text-[10px] text-slate-500 pt-1">
+              Interval between automated background scans of Sonarr, Radarr, and Plex/Tautulli (Default: 1 hour).
+            </p>
+          </div>
+
+          {/* Catalog Batch Size */}
+          <div className="space-y-1 bg-slate-900/60 border border-slate-800 p-3 rounded-lg">
+            <label className="text-slate-300 font-medium flex items-center gap-1.5">
+              <span>Catalog Batch Size</span>
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                step="10"
+                min="10"
+                max="500"
+                value={catalogBatchSize}
+                onChange={(e) => setCatalogBatchSize(parseInt(e.target.value) || 50)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-md px-2.5 py-1.5 text-white font-mono focus:border-sky-500 focus:outline-none"
+              />
+              <span className="text-[11px] font-mono text-slate-400 shrink-0">Items / page</span>
+            </div>
+            <p className="text-[10px] text-slate-500 pt-1">
+              Number of media candidates loaded per batch during infinite virtual scrolling (Default: 50 items).
             </p>
           </div>
         </div>

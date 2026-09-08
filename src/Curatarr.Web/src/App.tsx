@@ -4,7 +4,7 @@ import { useCatalogStore } from './stores/useCatalogStore';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ControlBar } from './components/ControlBar';
-import { MediaCard } from './components/MediaCard';
+import { GridView } from './components/GridView';
 import { TableView } from './components/TableView';
 import { BatchActionBar } from './components/BatchActionBar';
 import { PruneConfirmModal } from './components/PruneConfirmModal';
@@ -21,9 +21,12 @@ export default function App() {
     toggleProtect,
     viewMode,
     isLoading,
+    isLoadingMore,
+    hasMore,
     fetchCategories,
     fetchUsers,
     fetchItems,
+    loadMore,
     clearSelection,
     executePrune,
   } = useCatalogStore();
@@ -116,27 +119,28 @@ export default function App() {
             </p>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-3.5">
-            {items.map((item) => (
-              <MediaCard
-                key={item.id}
-                item={item}
-                isSelected={selectedIds.has(item.id)}
-                onToggleSelect={() => toggleSelect(item.id)}
-                onToggleProtect={() => toggleProtect(item.id, !item.isProtected)}
-                onPrune={(seasonNum) => handleOpenSinglePrune(item, seasonNum)}
-                onOpenDetail={() => setDetailItem(item)}
-              />
-            ))}
-          </div>
+          <GridView
+            items={items}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onToggleProtect={(id, isProt) => toggleProtect(id, isProt)}
+            onPrune={(item, seasonNum) => handleOpenSinglePrune(item, seasonNum)}
+            onOpenDetail={(item) => setDetailItem(item)}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={loadMore}
+          />
         ) : (
           <TableView
             items={items}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
-            onToggleProtect={toggleProtect}
+            onToggleProtect={(id, isProt) => toggleProtect(id, isProt)}
             onPrune={(item) => handleOpenSinglePrune(item)}
             onOpenDetail={(item) => setDetailItem(item)}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            onLoadMore={loadMore}
           />
         )}
       </main>

@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS: CuratarrSettings = {
   seriesEpisodeSpaceHogThresholdBytes: 2.5 * 1024 * 1024 * 1024,
   staleDays: 180,
   abandonedDays: 90,
+  syncIntervalHours: 1,
+  catalogBatchSize: 50,
   movieSpaceHogGb: 20.0,
   movie4kSpaceHogGb: 50.0,
   seriesEpisodeSpaceHogGb: 2.5,
