@@ -1,6 +1,8 @@
 using Curatarr.Core.Models;
+using Curatarr.Core.Repositories;
 using Curatarr.Core.Services;
 using Curatarr.Infrastructure.Data;
+using Curatarr.Infrastructure.Repositories;
 using Dapper;
 
 namespace Curatarr.Infrastructure.Services;
@@ -8,18 +10,21 @@ namespace Curatarr.Infrastructure.Services;
 public class SmartCategoryEngine : ISmartCategoryEngine
 {
     private readonly SqliteConnectionFactory _factory;
+    private readonly ISettingsRepository _settingsRepo;
 
-    public SmartCategoryEngine(SqliteConnectionFactory factory)
+    public SmartCategoryEngine(SqliteConnectionFactory factory, ISettingsRepository? settingsRepo = null)
     {
         _factory = factory;
+        _settingsRepo = settingsRepo ?? new SettingsRepository(factory);
     }
 
     public async Task<IReadOnlyList<CategoryCountSummary>> GetSummariesAsync(string? userIdFilter, CancellationToken ct = default)
     {
         using var conn = _factory.CreateConnection();
+        var settings = await _settingsRepo.GetSettingsAsync(ct);
 
-        var staleDate = DateTime.UtcNow.AddDays(-180).ToString("o");
-        var abandonedDate = DateTime.UtcNow.AddDays(-90).ToString("o");
+        var staleDate = DateTime.UtcNow.AddDays(-settings.StaleDays).ToString("o");
+        var abandonedDate = DateTime.UtcNow.AddDays(-settings.AbandonedDays).ToString("o");
 
         // Never Watched
         const string sqlNever = @"
@@ -59,13 +64,31 @@ public class SmartCategoryEngine : ISmartCategoryEngine
 
         var cutoff = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlCutoff, cancellationToken: ct));
 
-        // Space Hogs (> 15 GB)
+        // Space Hogs (Adjustable: Movies HD vs 4K; Series by Per-Episode size)
         const string sqlSpace = @"
             SELECT COUNT(*) as Count, COALESCE(SUM(m.total_size_bytes), 0) as Size
             FROM media_items m
-            WHERE m.is_protected = 0 AND m.total_size_bytes > 15000000000;";
+            WHERE m.is_protected = 0
+              AND (
+                (m.media_type = 0 AND (
+                  (EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.resolution = '4K') AND m.total_size_bytes > @Movie4kThresholdBytes)
+                  OR
+                  (NOT EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.resolution = '4K') AND m.total_size_bytes > @MovieThresholdBytes)
+                ))
+                OR
+                (m.media_type = 1 AND (
+                  SELECT COALESCE(SUM(s.episode_file_count), 0) FROM seasons s WHERE s.media_item_id = m.id
+                ) > 0 AND (
+                  m.total_size_bytes / (SELECT SUM(s.episode_file_count) FROM seasons s WHERE s.media_item_id = m.id)
+                ) > @SeriesEpisodeThresholdBytes)
+              );";
 
-        var space = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlSpace, cancellationToken: ct));
+        var space = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlSpace, new
+        {
+            Movie4kThresholdBytes = settings.Movie4kSpaceHogThresholdBytes,
+            MovieThresholdBytes = settings.MovieSpaceHogThresholdBytes,
+            SeriesEpisodeThresholdBytes = settings.SeriesEpisodeSpaceHogThresholdBytes
+        }, cancellationToken: ct));
 
         // Missing
         const string sqlMissing = @"
@@ -87,7 +110,7 @@ public class SmartCategoryEngine : ISmartCategoryEngine
         return
         [
             new CategoryCountSummary(SmartCategoryIds.NeverWatched, "Never Watched", never.Count, never.Size),
-            new CategoryCountSummary(SmartCategoryIds.Stale, "Stale (>180d)", stale.Count, stale.Size),
+            new CategoryCountSummary(SmartCategoryIds.Stale, $"Stale (>{settings.StaleDays}d)", stale.Count, stale.Size),
             new CategoryCountSummary(SmartCategoryIds.Abandoned, "Abandoned TV", abandoned.Count, abandoned.Size),
             new CategoryCountSummary(SmartCategoryIds.CutoffUnmet, "Cutoff Unmet", cutoff.Count, cutoff.Size),
             new CategoryCountSummary(SmartCategoryIds.SpaceHogs, "Space Hogs", space.Count, space.Size),

@@ -50,7 +50,7 @@ public class PlexClient : IPlexClient
     public async Task<IReadOnlyList<PlexMetadataItemDto>> GetSectionItemsAsync(ServiceConnection connection, string sectionKey, CancellationToken ct = default)
     {
         var baseUrl = connection.BaseUrl.TrimEnd('/');
-        using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/library/sections/{sectionKey}/all", connection.ApiKey);
+        using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/library/sections/{sectionKey}/all?includeGuids=1", connection.ApiKey);
         using var res = await _httpClient.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
 
@@ -74,19 +74,48 @@ public class PlexClient : IPlexClient
                 var guid = el.TryGetProperty("guid", out var g) ? g.GetString() : null;
                 var year = el.TryGetProperty("year", out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : (int?)null;
 
-                int viewCount = 0;
-                if (el.TryGetProperty("viewCount", out var vc) && vc.ValueKind == JsonValueKind.Number)
+                var guidList = new List<string>();
+                if (!string.IsNullOrWhiteSpace(guid)) guidList.Add(guid);
+
+                if (el.TryGetProperty("Guid", out var guidsProp) && guidsProp.ValueKind == JsonValueKind.Array)
                 {
-                    viewCount = vc.GetInt32();
+                    foreach (var ge in guidsProp.EnumerateArray())
+                    {
+                        if (ge.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.String)
+                        {
+                            var idStr = idProp.GetString();
+                            if (!string.IsNullOrWhiteSpace(idStr)) guidList.Add(idStr);
+                        }
+                    }
+                }
+
+                int viewCount = 0;
+                if (el.TryGetProperty("viewCount", out var vc))
+                {
+                    if (vc.ValueKind == JsonValueKind.Number && vc.TryGetInt32(out var vcNum)) viewCount = vcNum;
+                    else if (vc.ValueKind == JsonValueKind.String && int.TryParse(vc.GetString(), out var vcParsed)) viewCount = vcParsed;
+                }
+
+                if (viewCount == 0 && el.TryGetProperty("viewedLeafCount", out var vlc))
+                {
+                    if (vlc.ValueKind == JsonValueKind.Number && vlc.TryGetInt32(out var vlcNum)) viewCount = vlcNum;
+                    else if (vlc.ValueKind == JsonValueKind.String && int.TryParse(vlc.GetString(), out var vlcParsed)) viewCount = vlcParsed;
                 }
 
                 DateTime? lastViewedAt = null;
-                if (el.TryGetProperty("lastViewedAt", out var lva) && lva.ValueKind == JsonValueKind.Number)
+                if (el.TryGetProperty("lastViewedAt", out var lva))
                 {
-                    lastViewedAt = DateTimeOffset.FromUnixTimeSeconds(lva.GetInt64()).UtcDateTime;
+                    if (lva.ValueKind == JsonValueKind.Number && lva.TryGetInt64(out var lvaNum))
+                    {
+                        lastViewedAt = DateTimeOffset.FromUnixTimeSeconds(lvaNum).UtcDateTime;
+                    }
+                    else if (lva.ValueKind == JsonValueKind.String && long.TryParse(lva.GetString(), out var lvaParsed))
+                    {
+                        lastViewedAt = DateTimeOffset.FromUnixTimeSeconds(lvaParsed).UtcDateTime;
+                    }
                 }
 
-                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt));
+                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt, guidList));
             }
         }
 

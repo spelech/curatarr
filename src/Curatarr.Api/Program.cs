@@ -22,6 +22,7 @@ builder.Services.AddSingleton(new SqliteConnectionFactory(defaultConnectionStrin
 builder.Services.AddSingleton<DatabaseInitializer>();
 
 // Repositories
+builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IConnectionRepository, ConnectionRepository>();
 builder.Services.AddSingleton<IMediaRepository, MediaRepository>();
 builder.Services.AddSingleton<IAuditRepository, AuditRepository>();
@@ -75,7 +76,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "healthy",
     service = "curatarr",
-    version = "1.0.0",
+    version = "1.1.0",
     timestamp = DateTime.UtcNow
 }));
 
@@ -97,7 +98,7 @@ async Task<JsonRpcResponse> HandleJsonRpcAsync(JsonRpcRequest req, CuratarrMcpRe
                 serverInfo = new
                 {
                     name = "curatarr",
-                    version = "1.0.0"
+                    version = "1.1.0"
                 }
             };
             break;
@@ -218,6 +219,7 @@ app.MapPost("/mcp/messages", async (HttpContext context, CuratarrMcpRegistry reg
 // Map REST API Endpoints
 app.MapCatalogEndpoints();
 app.MapConnectionEndpoints();
+app.MapSettingsEndpoints();
 app.MapPruneAndSyncEndpoints();
 app.MapDiscoveryEndpoints();
 

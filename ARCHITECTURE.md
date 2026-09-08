@@ -61,4 +61,39 @@ flowchart TD
 - `src/Curatarr.Api`: Minimal API endpoints, embedded Model Context Protocol (MCP) server, and static React file host.
 - `src/Curatarr.Web`: React 19 single page application with Tailwind CSS, Zustand stores, and responsive layouts.
 - `tests/Curatarr.Tests`: xUnit and NSubstitute unit/integration tests.
-- `tests/Curatarr.E2E`: Playwright layout tests with `@stevenpelech/playwright-layout-inspector`.
+- `tests/Curatarr.E2E`: Playwright layout tests with `@spelech/playwright-layout-inspector`.
+
+---
+
+## 3. Catalog Sync & Watch Reconciliation Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor UserOrWorker as CatalogSyncWorker
+    participant SyncService as CatalogSyncService
+    participant ArrAdapter as Sonarr/Radarr Adapters
+    participant MediaAdapter as Plex/Tautulli Adapters
+    participant Repo as MediaRepository (Dapper)
+    participant DB as SQLite WAL
+
+    UserOrWorker->>SyncService: TriggerSyncAsync()
+    SyncService->>ArrAdapter: Fetch media items, seasons, file sizes, posters, and added dates
+    ArrAdapter-->>SyncService: Return normalized ArrMediaEntities
+    SyncService->>MediaAdapter: Fetch user watch histories & external GUIDs
+    MediaAdapter-->>SyncService: Return watch statistics with IMDB/TMDB/TVDB GUIDs
+    SyncService->>SyncService: Match watches by GUID priority, fallback to normalized title
+    SyncService->>Repo: UpsertMediaBatchAsync(entities)
+    Repo->>DB: Execute parameterized SQL in SQLite WAL
+    DB-->>Repo: Acknowledge transaction
+    Repo-->>SyncService: Sync complete
+```
+
+---
+
+## 4. Non-Functional Guarantees & SLAs
+
+1. **Deterministic Persistence**: SQLite in WAL mode with `PRAGMA synchronous = NORMAL;` and `PRAGMA foreign_keys = ON;`. Zero heavy ORMs.
+2. **Container Immutability**: Services are distributed via standard Docker images (`ghcr.io/spelech/curatarr:latest`). Hot-patching live containers is strictly prohibited.
+3. **Agent & Protocol First**: The core domain is fully operable by AI agents via MCP tools without requiring direct database access or manual CLI manipulations.
+4. **Layout UX Stability**: Zero horizontal layout overflow across desktop and mobile viewports verified by automated Playwright Layout Inspector gates.

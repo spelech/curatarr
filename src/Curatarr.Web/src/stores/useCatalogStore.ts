@@ -16,6 +16,9 @@ interface CatalogState {
   viewMode: 'grid' | 'table';
   selectedIds: Set<string>;
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
+  pageSize: number;
   isSyncing: boolean;
   prunedNotification: { count: number; bytesFreed: number } | null;
 
@@ -29,6 +32,7 @@ interface CatalogState {
   setSortBy: (sort: string) => void;
   toggleSortDesc: () => void;
   setViewMode: (mode: 'grid' | 'table') => void;
+  setPageSize: (size: number) => void;
   toggleSelect: (id: string) => void;
   selectAll: () => void;
   clearSelection: () => void;
@@ -37,6 +41,7 @@ interface CatalogState {
   fetchCategories: () => Promise<void>;
   fetchUsers: () => Promise<void>;
   fetchItems: () => Promise<void>;
+  loadMore: () => Promise<void>;
   toggleProtect: (mediaItemId: string, isProtected: boolean, reason?: string) => Promise<void>;
   triggerSync: () => Promise<void>;
   refreshPlex: () => Promise<{ success: boolean; message: string }>;
@@ -58,6 +63,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   viewMode: 'grid',
   selectedIds: new Set<string>(),
   isLoading: false,
+  isLoadingMore: false,
+  hasMore: true,
+  pageSize: 50,
   isSyncing: false,
   prunedNotification: null,
 
@@ -103,6 +111,11 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
 
   setViewMode: (mode) => set({ viewMode: mode }),
+
+  setPageSize: (size) => {
+    set({ pageSize: size });
+    get().fetchItems();
+  },
 
   toggleSelect: (id) => {
     set((state) => {
@@ -152,9 +165,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
 
   fetchItems: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, hasMore: true });
     try {
-      const { selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, searchQuery, sortBy, sortDesc } = get();
+      const { selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, searchQuery, sortBy, sortDesc, pageSize } = get();
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedUserId) params.set('userId', selectedUserId);
@@ -164,17 +177,59 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       if (searchQuery) params.set('search', searchQuery);
       params.set('sortBy', sortBy);
       params.set('sortDesc', sortDesc.toString());
-      params.set('limit', '100');
+      params.set('limit', pageSize.toString());
+      params.set('offset', '0');
 
       const res = await fetch(`/api/v1/catalog?${params.toString()}`);
       if (res.ok) {
-        const data = await res.json();
-        set({ items: data, isLoading: false });
+        const data: MediaItem[] = await res.json();
+        set({
+          items: data,
+          hasMore: data.length >= pageSize,
+          isLoading: false,
+        });
       } else {
         set({ isLoading: false });
       }
     } catch {
       set({ isLoading: false });
+    }
+  },
+
+  loadMore: async () => {
+    const { hasMore, isLoading, isLoadingMore, items, pageSize, selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, searchQuery, sortBy, sortDesc } = get();
+    if (!hasMore || isLoading || isLoadingMore) return;
+
+    set({ isLoadingMore: true });
+    try {
+      const params = new URLSearchParams();
+      if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
+      if (selectedUserId) params.set('userId', selectedUserId);
+      if (selectedMediaType !== 'all') params.set('mediaType', selectedMediaType);
+      if (selectedResolution) params.set('resolution', selectedResolution);
+      if (selectedCutoffUnmet !== null) params.set('cutoffUnmet', selectedCutoffUnmet.toString());
+      if (searchQuery) params.set('search', searchQuery);
+      params.set('sortBy', sortBy);
+      params.set('sortDesc', sortDesc.toString());
+      params.set('limit', pageSize.toString());
+      params.set('offset', items.length.toString());
+
+      const res = await fetch(`/api/v1/catalog?${params.toString()}`);
+      if (res.ok) {
+        const data: MediaItem[] = await res.json();
+        const existingIds = new Set(items.map((i) => i.id));
+        const newItems = data.filter((i) => !existingIds.has(i.id));
+
+        set((state) => ({
+          items: [...state.items, ...newItems],
+          hasMore: data.length >= pageSize,
+          isLoadingMore: false,
+        }));
+      } else {
+        set({ isLoadingMore: false });
+      }
+    } catch {
+      set({ isLoadingMore: false });
     }
   },
 

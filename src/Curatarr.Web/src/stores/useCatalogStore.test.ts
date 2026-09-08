@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useCatalogStore } from './useCatalogStore';
 import { MediaItem } from '../types/api';
 
@@ -56,5 +56,55 @@ describe('useCatalogStore', () => {
 
     store.clearSelection();
     expect(useCatalogStore.getState().selectedIds.size).toBe(0);
+  });
+
+  it('fetchItems and loadMore handle infinite scrolling batches accurately', async () => {
+    const batch1: MediaItem[] = Array.from({ length: 50 }, (_, i) => ({
+      id: `item-${i}`,
+      title: `Movie ${i}`,
+      sortTitle: `Movie ${i}`,
+      mediaType: 0,
+      totalSizeBytes: 1000 * (i + 1),
+      isProtected: false,
+      instances: [],
+      seasons: [],
+      watchStats: [],
+    }));
+
+    const batch2: MediaItem[] = Array.from({ length: 25 }, (_, i) => ({
+      id: `item-${i + 50}`,
+      title: `Movie ${i + 50}`,
+      sortTitle: `Movie ${i + 50}`,
+      mediaType: 0,
+      totalSizeBytes: 1000 * (i + 51),
+      isProtected: false,
+      instances: [],
+      seasons: [],
+      watchStats: [],
+    }));
+
+    // Mock initial fetchItems returning batch1 (50 items)
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => batch1,
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => batch2,
+      } as Response);
+
+    await useCatalogStore.getState().fetchItems();
+
+    const stateAfterBatch1 = useCatalogStore.getState();
+    expect(stateAfterBatch1.items.length).toBe(50);
+    expect(stateAfterBatch1.hasMore).toBe(true);
+
+    // Call loadMore
+    await useCatalogStore.getState().loadMore();
+
+    const stateAfterBatch2 = useCatalogStore.getState();
+    expect(stateAfterBatch2.items.length).toBe(75);
+    expect(stateAfterBatch2.hasMore).toBe(false); // batch2 returned 25 (< pageSize 50)
   });
 });

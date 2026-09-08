@@ -96,7 +96,33 @@ public class SonarrClient : ISonarrClient
                 resTag = "1080p";
             }
 
-            list.Add(new SonarrSeriesDto(id, title, sortTitle, tvdbId, imdbId, year, monitored, path, sizeOnDisk, episodeFileCount, totalEpisodeCount, qualityProfileId, seasons, resTag));
+            DateTime? addedAt = null;
+            if (el.TryGetProperty("added", out var addedProp) && addedProp.ValueKind == JsonValueKind.String)
+            {
+                if (DateTime.TryParse(addedProp.GetString(), out var dt))
+                {
+                    addedAt = dt.ToUniversalTime();
+                }
+            }
+
+            string? posterUrl = null;
+            if (el.TryGetProperty("images", out var imagesProp) && imagesProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var img in imagesProp.EnumerateArray())
+                {
+                    var coverType = img.TryGetProperty("coverType", out var ctProp) ? ctProp.GetString() : null;
+                    if (string.Equals(coverType, "poster", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (img.TryGetProperty("remoteUrl", out var ru) && ru.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(ru.GetString()))
+                        {
+                            posterUrl = ru.GetString();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            list.Add(new SonarrSeriesDto(id, title, sortTitle, tvdbId, imdbId, year, monitored, path, sizeOnDisk, episodeFileCount, totalEpisodeCount, qualityProfileId, seasons, resTag, addedAt, posterUrl));
         }
 
         return list;

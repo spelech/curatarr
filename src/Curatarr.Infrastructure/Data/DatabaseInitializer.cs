@@ -4,6 +4,12 @@ namespace Curatarr.Infrastructure.Data;
 
 public class DatabaseInitializer
 {
+    static DatabaseInitializer()
+    {
+        SqlMapper.AddTypeHandler(new DateTimeHandler());
+        SqlMapper.AddTypeHandler(new NullableDateTimeHandler());
+    }
+
     private readonly SqliteConnectionFactory _connectionFactory;
 
     public DatabaseInitializer(SqliteConnectionFactory connectionFactory)
@@ -107,6 +113,12 @@ public class DatabaseInitializer
             details TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(media_type);
         CREATE INDEX IF NOT EXISTS idx_media_protected ON media_items(is_protected);
         CREATE INDEX IF NOT EXISTS idx_media_added ON media_items(added_at);
@@ -159,5 +171,44 @@ public class DatabaseInitializer
         CREATE INDEX IF NOT EXISTS idx_instances_cutoff ON media_instances(cutoff_unmet);
         ";
         await connection.ExecuteAsync(uniqueIndexesSql);
+    }
+}
+
+public class DateTimeHandler : SqlMapper.TypeHandler<DateTime>
+{
+    public override void SetValue(System.Data.IDbDataParameter parameter, DateTime value)
+    {
+        parameter.Value = value.ToUniversalTime().ToString("o");
+    }
+
+    public override DateTime Parse(object value)
+    {
+        return value switch
+        {
+            DateTime dt => dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime(),
+            DateTimeOffset dto => dto.UtcDateTime,
+            string s => DateTimeOffset.Parse(s, System.Globalization.CultureInfo.InvariantCulture).UtcDateTime,
+            _ => Convert.ToDateTime(value).ToUniversalTime()
+        };
+    }
+}
+
+public class NullableDateTimeHandler : SqlMapper.TypeHandler<DateTime?>
+{
+    public override void SetValue(System.Data.IDbDataParameter parameter, DateTime? value)
+    {
+        parameter.Value = value.HasValue ? value.Value.ToUniversalTime().ToString("o") : DBNull.Value;
+    }
+
+    public override DateTime? Parse(object value)
+    {
+        if (value == null || value is DBNull) return null;
+        return value switch
+        {
+            DateTime dt => dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime(),
+            DateTimeOffset dto => dto.UtcDateTime,
+            string s => DateTimeOffset.Parse(s, System.Globalization.CultureInfo.InvariantCulture).UtcDateTime,
+            _ => Convert.ToDateTime(value).ToUniversalTime()
+        };
     }
 }

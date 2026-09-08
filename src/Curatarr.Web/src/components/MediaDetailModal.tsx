@@ -83,8 +83,14 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-start justify-between p-5 border-b border-slate-800/80 bg-slate-950/60">
           <div className="flex items-start gap-4 min-w-0">
-            <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-xl text-slate-300 shrink-0">
-              {isSeries ? <Tv className="w-6 h-6 text-sky-400" /> : <Film className="w-6 h-6 text-amber-400" />}
+            <div className="w-16 h-24 sm:w-20 sm:h-28 shrink-0 rounded-xl overflow-hidden bg-slate-800 border border-slate-700 shadow-md">
+              {item.posterUrl ? (
+                <img src={item.posterUrl} alt={item.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                  {isSeries ? <Tv className="w-8 h-8 text-sky-400" /> : <Film className="w-8 h-8 text-amber-400" />}
+                </div>
+              )}
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -280,7 +286,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                           {s.seasonNumber === 0 ? 'Specials (Season 0)' : `Season ${s.seasonNumber}`}
                         </td>
                         <td className="p-2.5 text-slate-300 font-mono">
-                          {s.episodeFileCount} / {s.episodeCount} files
+                          {s.episodeFileCount} / {s.episodeCount} files on disk
                         </td>
                         <td className="p-2.5">
                           <span

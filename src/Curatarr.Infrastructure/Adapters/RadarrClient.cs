@@ -72,7 +72,34 @@ public class RadarrClient : IRadarrClient
                 }
             }
 
-            list.Add(new RadarrMovieDto(id, title, sortTitle, tmdbId, imdbId, year, hasFile, monitored, path, sizeOnDisk, qualityProfileId, resolution));
+            DateTime? addedAt = null;
+            if (el.TryGetProperty("added", out var addedProp) && addedProp.ValueKind == JsonValueKind.String)
+            {
+                if (DateTime.TryParse(addedProp.GetString(), out var dt))
+                {
+                    addedAt = dt.ToUniversalTime();
+                }
+            }
+
+            string? posterUrl = null;
+            if (el.TryGetProperty("images", out var imagesProp) && imagesProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var img in imagesProp.EnumerateArray())
+                {
+                    var coverType = img.TryGetProperty("coverType", out var ctProp) ? ctProp.GetString() : null;
+                    if (string.Equals(coverType, "poster", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (img.TryGetProperty("remoteUrl", out var ru) && ru.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(ru.GetString()))
+                        {
+                            var rUrl = ru.GetString()!;
+                            posterUrl = rUrl.Replace("/original/", "/w500/");
+                            break;
+                        }
+                    }
+                }
+            }
+
+            list.Add(new RadarrMovieDto(id, title, sortTitle, tmdbId, imdbId, year, hasFile, monitored, path, sizeOnDisk, qualityProfileId, resolution, addedAt, posterUrl));
         }
 
         return list;

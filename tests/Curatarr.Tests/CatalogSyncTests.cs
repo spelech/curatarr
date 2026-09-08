@@ -330,4 +330,257 @@ public class CatalogSyncTests : IDisposable
         showItem.WatchStats[0].SeasonNumber.Should().Be(1);
         showItem.WatchStats[0].PlayCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task SyncAsync_ShouldMatchTvShow_WhenEpisodeAirYearDiffersFromSeriesPremiereYear()
+    {
+        await _initializer.InitializeAsync();
+
+        var connSonarr = new ServiceConnection
+        {
+            Id = "sonarr-1",
+            ConnectionType = ConnectionType.Sonarr,
+            Name = "Sonarr",
+            BaseUrl = "http://sonarr:8989",
+            ApiKey = "key1",
+            IsEnabled = true
+        };
+        var connTautulli = new ServiceConnection
+        {
+            Id = "tautulli-1",
+            ConnectionType = ConnectionType.Tautulli,
+            Name = "Tautulli",
+            BaseUrl = "http://tautulli:8181",
+            ApiKey = "key2",
+            IsEnabled = true
+        };
+
+        await _connRepo.UpsertAsync(connSonarr);
+        await _connRepo.UpsertAsync(connTautulli);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        // Series premiere year is 2005
+        var show = new SonarrSeriesDto(
+            100, "It's Always Sunny in Philadelphia", "its always sunny in philadelphia", 75805, "tt0472954", 2005, true, "/tv/Sunny", 50_000_000_000, 180, 180, 18,
+            [new SonarrSeasonDto(18, true, 2_000_000_000, 8, 8)]
+        );
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SonarrSeriesDto>>([show]));
+
+        // Episode history where Year is 2026 (the episode air year, NOT the 2005 premiere year)
+        var historyItem = new TautulliHistoryItemDto(
+            RatingKey: 99999,
+            GrandparentRatingKey: "88888", // Not in Plex rating key map
+            ParentRatingKey: "77777",
+            Title: "2026: A Virtual Insanity",
+            GrandparentTitle: "It's Always Sunny in Philadelphia",
+            UserId: "user-ginkel",
+            Username: "ginkel900",
+            SeasonNumber: 18,
+            Date: DateTime.UtcNow.AddDays(-2),
+            MediaType: "episode",
+            Year: 2026
+        );
+        tautulliClient.GetHistoryAsync(Arg.Any<ServiceConnection>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<TautulliHistoryItemDto>>([historyItem]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync(fullSync: true);
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10 });
+        items.Should().ContainSingle();
+
+        var sunny = items[0];
+        sunny.Title.Should().Be("It's Always Sunny in Philadelphia");
+        sunny.Year.Should().Be(2005);
+        sunny.WatchStats.Should().ContainSingle();
+        sunny.WatchStats[0].Username.Should().Be("ginkel900");
+        sunny.WatchStats[0].PlayCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SyncAsync_ShouldCorrelatePlexAndTautulli_ViaExternalGuid_WhenTitlesDiffer()
+    {
+        await _initializer.InitializeAsync();
+
+        var connRadarr = new ServiceConnection
+        {
+            Id = "radarr-1",
+            ConnectionType = ConnectionType.Radarr,
+            Name = "Radarr",
+            BaseUrl = "http://radarr:7878",
+            ApiKey = "key1",
+            IsEnabled = true
+        };
+        var connPlex = new ServiceConnection
+        {
+            Id = "plex-1",
+            ConnectionType = ConnectionType.Plex,
+            Name = "Plex",
+            BaseUrl = "http://plex:32400",
+            ApiKey = "key2",
+            IsEnabled = true
+        };
+        var connTautulli = new ServiceConnection
+        {
+            Id = "tautulli-1",
+            ConnectionType = ConnectionType.Tautulli,
+            Name = "Tautulli",
+            BaseUrl = "http://tautulli:8181",
+            ApiKey = "key3",
+            IsEnabled = true
+        };
+
+        await _connRepo.UpsertAsync(connRadarr);
+        await _connRepo.UpsertAsync(connPlex);
+        await _connRepo.UpsertAsync(connTautulli);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        // Radarr has clean title "Saving Private Ryan" with IMDB ID tt0120815
+        var movie = new RadarrMovieDto(
+            500, "Saving Private Ryan", "saving private ryan", 857, "tt0120815", 1998, true, true, "/movies/Saving Private Ryan", 40_000_000_000, 1
+        );
+        radarrClient.GetMoviesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<RadarrMovieDto>>([movie]));
+
+        // Plex has title with suffix "Saving Private Ryan A" and IMDB GUID
+        plexClient.GetSectionsAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PlexSectionDto>>([
+                new PlexSectionDto("1", "Movies", "movie", null)
+            ]));
+        plexClient.GetSectionItemsAsync(Arg.Any<ServiceConnection>(), "1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PlexMetadataItemDto>>([
+                new PlexMetadataItemDto(
+                    RatingKey: 5925,
+                    Title: "Saving Private Ryan A",
+                    Type: "movie",
+                    Guid: "com.plexapp.agents.imdb://tt0120815?lang=en",
+                    Year: 1998,
+                    Guids: ["imdb://tt0120815", "tmdb://857"]
+                )
+            ]));
+
+        // Tautulli recorded a play under ratingKey 5925
+        var historyItem = new TautulliHistoryItemDto(
+            RatingKey: 5925,
+            GrandparentRatingKey: null,
+            ParentRatingKey: null,
+            Title: "Saving Private Ryan A",
+            GrandparentTitle: null,
+            UserId: "user-steve",
+            Username: "loudrockmusic",
+            SeasonNumber: null,
+            Date: DateTime.UtcNow.AddDays(-1000),
+            MediaType: "movie",
+            Year: 1998
+        );
+        tautulliClient.GetHistoryAsync(Arg.Any<ServiceConnection>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<TautulliHistoryItemDto>>([historyItem]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync(fullSync: true);
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10 });
+        items.Should().ContainSingle();
+
+        var ryan = items[0];
+        ryan.Title.Should().Be("Saving Private Ryan");
+        ryan.PlexRatingKey.Should().Be(5925);
+        ryan.WatchStats.Should().ContainSingle();
+        ryan.WatchStats[0].Username.Should().Be("loudrockmusic");
+        ryan.WatchStats[0].PlayCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task SyncAsync_ShouldPopulateAddedAtAndPosterUrl_FromSonarrAndRadarr()
+    {
+        await _initializer.InitializeAsync();
+
+        var sonarrConn = new ServiceConnection
+        {
+            Id = "conn-sonarr",
+            ConnectionType = ConnectionType.Sonarr,
+            Name = "Sonarr",
+            BaseUrl = "http://sonarr:8989",
+            ApiKey = "key",
+            IsEnabled = true
+        };
+        var radarrConn = new ServiceConnection
+        {
+            Id = "conn-radarr",
+            ConnectionType = ConnectionType.Radarr,
+            Name = "Radarr",
+            BaseUrl = "http://radarr:7878",
+            ApiKey = "key",
+            IsEnabled = true
+        };
+        await _connRepo.UpsertAsync(sonarrConn);
+        await _connRepo.UpsertAsync(radarrConn);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        var addedDate = new DateTime(2023, 5, 10, 12, 0, 0, DateTimeKind.Utc);
+        var seriesDto = new SonarrSeriesDto(
+            Id: 1,
+            Title: "Severance",
+            SortTitle: "Severance",
+            TvdbId: 371980,
+            ImdbId: "tt11280740",
+            Year: 2022,
+            Monitored: true,
+            Path: "/tv/Severance",
+            SizeOnDisk: 10_000_000_000,
+            EpisodeFileCount: 9,
+            TotalEpisodeCount: 9,
+            QualityProfileId: 1,
+            Seasons: [],
+            AddedAt: addedDate,
+            PosterUrl: "https://artworks.thetvdb.com/banners/posters/severance.jpg"
+        );
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<SonarrSeriesDto>>([seriesDto]));
+
+        var movieDto = new RadarrMovieDto(
+            Id: 10,
+            Title: "Dune: Part Two",
+            SortTitle: "Dune: Part Two",
+            TmdbId: 693134,
+            ImdbId: "tt15239678",
+            Year: 2024,
+            HasFile: true,
+            Monitored: true,
+            Path: "/movies/Dune 2",
+            SizeOnDisk: 20_000_000_000,
+            QualityProfileId: 1,
+            AddedAt: addedDate.AddDays(10),
+            PosterUrl: "https://image.tmdb.org/t/p/w500/dune2.jpg"
+        );
+        radarrClient.GetMoviesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<RadarrMovieDto>>([movieDto]));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync(fullSync: true);
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10, SortBy = "added", SortDescending = false });
+        items.Should().HaveCount(2);
+
+        var series = items.First(i => i.MediaType == MediaType.Series);
+        series.AddedAt.Should().Be(addedDate);
+        series.PosterUrl.Should().Be("https://artworks.thetvdb.com/banners/posters/severance.jpg");
+
+        var movie = items.First(i => i.MediaType == MediaType.Movie);
+        movie.AddedAt.Should().Be(addedDate.AddDays(10));
+        movie.PosterUrl.Should().Be("https://image.tmdb.org/t/p/w500/dune2.jpg");
+    }
 }

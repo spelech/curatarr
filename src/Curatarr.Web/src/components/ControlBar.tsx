@@ -167,7 +167,7 @@ export const ControlBar: React.FC = () => {
           onClick={() => (isAllSelected ? clearSelection() : selectAll())}
           className="px-2.5 py-1 rounded-md bg-slate-950 border border-slate-800 text-slate-300 hover:bg-slate-800 text-xs font-medium transition"
         >
-          {isAllSelected ? 'Deselect All' : 'Select All'}
+          {isAllSelected ? 'Deselect All' : items.length > 0 ? `Select Loaded (${items.length})` : 'Select All'}
         </button>
       </div>
     </div>

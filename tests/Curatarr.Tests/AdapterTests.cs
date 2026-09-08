@@ -149,4 +149,91 @@ public class AdapterTests
         result.Success.Should().BeTrue();
         result.Version.Should().Be("3.0.10.1567");
     }
+
+    [Fact]
+    public async Task TautulliClient_GetHistory_ShouldParseStringAndNumberFieldsCorrectly()
+    {
+        var json = @"{
+            ""response"": {
+                ""result"": ""success"",
+                ""data"": {
+                    ""recordsFiltered"": 1,
+                    ""recordsTotal"": 1,
+                    ""data"": [
+                        {
+                            ""rating_key"": ""12033"",
+                            ""grandparent_rating_key"": ""38587"",
+                            ""parent_rating_key"": ""38588"",
+                            ""title"": ""Harry Potter and the Goblet of Fire"",
+                            ""grandparent_title"": """",
+                            ""user_id"": 10860036,
+                            ""user"": ""npel8"",
+                            ""parent_media_index"": ""2"",
+                            ""date"": 1634088068,
+                            ""media_type"": ""movie"",
+                            ""year"": ""2005""
+                        }
+                    ]
+                }
+            }
+        }";
+
+        var handler = new MockHandler(req =>
+        {
+            req.RequestUri!.PathAndQuery.Should().Contain("cmd=get_history");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
+        });
+
+        var client = new TautulliClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://tautulli:8181", ApiKey = "testkey" };
+
+        var history = await client.GetHistoryAsync(conn, length: 1);
+        history.Should().HaveCount(1);
+        var item = history[0];
+        item.RatingKey.Should().Be(12033);
+        item.GrandparentRatingKey.Should().Be("38587");
+        item.Title.Should().Be("Harry Potter and the Goblet of Fire");
+        item.UserId.Should().Be("10860036");
+        item.Username.Should().Be("npel8");
+        item.SeasonNumber.Should().Be(2);
+        item.Year.Should().Be(2005);
+        item.MediaType.Should().Be("movie");
+    }
+
+    [Fact]
+    public async Task PlexClient_GetSectionItems_ShouldFallbackToViewedLeafCount()
+    {
+        var json = @"{
+            ""MediaContainer"": {
+                ""Metadata"": [
+                    {
+                        ""ratingKey"": ""32711"",
+                        ""title"": ""3 Body Problem"",
+                        ""type"": ""show"",
+                        ""year"": 2024,
+                        ""viewCount"": 0,
+                        ""viewedLeafCount"": 4,
+                        ""lastViewedAt"": 1712528694
+                    }
+                ]
+            }
+        }";
+
+        var handler = new MockHandler(req =>
+        {
+            req.RequestUri!.PathAndQuery.Should().Contain("/library/sections/2/all");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
+        });
+
+        var client = new PlexClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://plex:32400", ApiKey = "plextoken" };
+
+        var items = await client.GetSectionItemsAsync(conn, "2");
+        items.Should().HaveCount(1);
+        var show = items[0];
+        show.RatingKey.Should().Be(32711);
+        show.Title.Should().Be("3 Body Problem");
+        show.ViewCount.Should().Be(4); // from viewedLeafCount
+        show.LastViewedAt.Should().NotBeNull();
+    }
 }

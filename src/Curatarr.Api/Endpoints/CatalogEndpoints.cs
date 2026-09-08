@@ -13,12 +13,14 @@ public static class CatalogEndpoints
 
         group.MapGet("/categories", async (ISmartCategoryEngine engine, string? userId, CancellationToken ct) =>
         {
-            var summaries = await engine.GetSummariesAsync(userId, ct);
+            var cleanUserId = string.IsNullOrWhiteSpace(userId) ? null : userId;
+            var summaries = await engine.GetSummariesAsync(cleanUserId, ct);
             return Results.Ok(summaries);
         });
 
         group.MapGet("/catalog", async (
             IMediaRepository repo,
+            ISettingsRepository settingsRepo,
             string? category,
             string? userId,
             string? mediaType,
@@ -38,17 +40,24 @@ public static class CatalogEndpoints
                 _ => null
             };
 
+            var settings = await settingsRepo.GetSettingsAsync(ct);
+            var effectiveLimit = limit.HasValue && limit.Value > 0
+                ? Math.Clamp(limit.Value, 1, 500)
+                : Math.Clamp(settings.CatalogBatchSize, 10, 500);
+            var effectiveOffset = Math.Max(0, offset ?? 0);
+
+            var cleanUserId = string.IsNullOrWhiteSpace(userId) ? null : userId;
             var options = new MediaFilterOptions(
                 CategoryId: category,
-                UserIdFilter: userId,
+                UserIdFilter: cleanUserId,
                 MediaTypeFilter: mType,
                 SearchQuery: search,
                 ResolutionFilter: resolution,
                 CutoffUnmetFilter: cutoffUnmet,
                 SortBy: sortBy ?? "size",
                 SortDescending: sortDesc ?? true,
-                Limit: limit ?? 50,
-                Offset: offset ?? 0
+                Limit: effectiveLimit,
+                Offset: effectiveOffset
             );
 
             var items = await repo.GetPagedAsync(options, ct);

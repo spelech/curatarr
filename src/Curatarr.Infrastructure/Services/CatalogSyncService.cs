@@ -86,9 +86,16 @@ public class CatalogSyncService : ICatalogSyncService
                             Year = s.Year,
                             TvdbId = s.TvdbId?.ToString(),
                             ImdbId = s.ImdbId,
+                            PosterUrl = s.PosterUrl,
+                            AddedAt = s.AddedAt,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         });
+
+                        if (!item.AddedAt.HasValue && s.AddedAt.HasValue) item.AddedAt = s.AddedAt;
+                        else if (s.AddedAt.HasValue && item.AddedAt.HasValue && s.AddedAt.Value < item.AddedAt.Value) item.AddedAt = s.AddedAt;
+
+                        if (string.IsNullOrEmpty(item.PosterUrl) && !string.IsNullOrEmpty(s.PosterUrl)) item.PosterUrl = s.PosterUrl;
 
                         // Add instance (avoid duplicate instance from same connection/externalId)
                         var instanceId = ComputeDeterministicId($"inst:{conn.Id}:{s.Id}");
@@ -180,9 +187,16 @@ public class CatalogSyncService : ICatalogSyncService
                             Year = m.Year,
                             TmdbId = m.TmdbId?.ToString(),
                             ImdbId = m.ImdbId,
+                            PosterUrl = m.PosterUrl,
+                            AddedAt = m.AddedAt,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
                         });
+
+                        if (!item.AddedAt.HasValue && m.AddedAt.HasValue) item.AddedAt = m.AddedAt;
+                        else if (m.AddedAt.HasValue && item.AddedAt.HasValue && m.AddedAt.Value < item.AddedAt.Value) item.AddedAt = m.AddedAt;
+
+                        if (string.IsNullOrEmpty(item.PosterUrl) && !string.IsNullOrEmpty(m.PosterUrl)) item.PosterUrl = m.PosterUrl;
 
                         var instanceId = ComputeDeterministicId($"inst:{conn.Id}:{m.Id}");
                         if (!item.Instances.Any(i => i.Id == instanceId))
@@ -223,13 +237,29 @@ public class CatalogSyncService : ICatalogSyncService
                 item.TotalSizeBytes = item.Instances.Sum(i => i.SizeBytes);
             }
 
-            // Build typed normalized lookup maps for fast title matching
+            // Build external ID and title lookup maps for fast resilient matching
+            var imdbMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
+            var tmdbMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
+            var tvdbMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
             var exactItemMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
             var typeTitleItemMap = new Dictionary<string, MediaItem>(StringComparer.OrdinalIgnoreCase);
             var plexRatingKeyMap = new Dictionary<int, MediaItem>();
 
             foreach (var item in itemMap.Values)
             {
+                if (!string.IsNullOrEmpty(item.ImdbId))
+                {
+                    imdbMap[item.ImdbId.Trim().ToLowerInvariant()] = item;
+                }
+                if (!string.IsNullOrEmpty(item.TmdbId))
+                {
+                    tmdbMap[item.TmdbId.Trim()] = item;
+                }
+                if (!string.IsNullOrEmpty(item.TvdbId))
+                {
+                    tvdbMap[item.TvdbId.Trim()] = item;
+                }
+
                 var norm = NormalizeTitle(item.Title);
                 if (!string.IsNullOrEmpty(norm))
                 {
@@ -261,21 +291,57 @@ public class CatalogSyncService : ICatalogSyncService
 
                         foreach (var pi in plexItems)
                         {
-                            var norm = NormalizeTitle(pi.Title);
-                            if (string.IsNullOrEmpty(norm)) continue;
-
                             var targetType = string.Equals(pi.Type, "show", StringComparison.OrdinalIgnoreCase)
                                 ? MediaType.Series
                                 : (string.Equals(pi.Type, "movie", StringComparison.OrdinalIgnoreCase) ? MediaType.Movie : defaultType);
 
                             MediaItem? matchedItem = null;
-                            if (pi.Year.HasValue && exactItemMap.TryGetValue($"{(int)targetType}:{norm}:{pi.Year.Value}", out var exact))
+
+                            // 1. External GUID matching (highest precision, immune to title/year variations)
+                            if (pi.Guids != null && pi.Guids.Count > 0)
                             {
-                                matchedItem = exact;
+                                foreach (var g in pi.Guids)
+                                {
+                                    if (string.IsNullOrWhiteSpace(g)) continue;
+
+                                    var imdbMatch = Regex.Match(g, @"(?:imdb://|agents\.imdb://)(tt\d+)", RegexOptions.IgnoreCase);
+                                    if (imdbMatch.Success && imdbMap.TryGetValue(imdbMatch.Groups[1].Value.ToLowerInvariant(), out var byImdb))
+                                    {
+                                        matchedItem = byImdb;
+                                        break;
+                                    }
+
+                                    var tmdbMatch = Regex.Match(g, @"(?:tmdb://|themoviedb://)(\d+)", RegexOptions.IgnoreCase);
+                                    if (tmdbMatch.Success && tmdbMap.TryGetValue(tmdbMatch.Groups[1].Value, out var byTmdb))
+                                    {
+                                        matchedItem = byTmdb;
+                                        break;
+                                    }
+
+                                    var tvdbMatch = Regex.Match(g, @"(?:tvdb://|thetvdb://)(\d+)", RegexOptions.IgnoreCase);
+                                    if (tvdbMatch.Success && tvdbMap.TryGetValue(tvdbMatch.Groups[1].Value, out var byTvdb))
+                                    {
+                                        matchedItem = byTvdb;
+                                        break;
+                                    }
+                                }
                             }
-                            else if (typeTitleItemMap.TryGetValue($"{(int)targetType}:{norm}", out var byType))
+
+                            // 2. Fallback to exact title + year match
+                            if (matchedItem == null)
                             {
-                                matchedItem = byType;
+                                var norm = NormalizeTitle(pi.Title);
+                                if (!string.IsNullOrEmpty(norm))
+                                {
+                                    if (pi.Year.HasValue && exactItemMap.TryGetValue($"{(int)targetType}:{norm}:{pi.Year.Value}", out var exact))
+                                    {
+                                        matchedItem = exact;
+                                    }
+                                    else if (typeTitleItemMap.TryGetValue($"{(int)targetType}:{norm}", out var byType))
+                                    {
+                                        matchedItem = byType;
+                                    }
+                                }
                             }
 
                             if (matchedItem != null)
@@ -322,7 +388,7 @@ public class CatalogSyncService : ICatalogSyncService
             {
                 try
                 {
-                    var history = await _tautulliClient.GetHistoryAsync(conn, length: 10000, ct: ct);
+                    var history = await _tautulliClient.GetHistoryAsync(conn, length: 0, ct: ct);
                     foreach (var h in history)
                     {
                         var isEpisode = string.Equals(h.MediaType, "episode", StringComparison.OrdinalIgnoreCase)
@@ -345,11 +411,37 @@ public class CatalogSyncService : ICatalogSyncService
                             matchedItem = byRk;
                         }
 
-                        // 2. Fallback to typed title match
+                        // 2. Try match by external GUID if present in Tautulli history
+                        if (matchedItem == null && !string.IsNullOrWhiteSpace(h.Guid))
+                        {
+                            var imdbMatch = Regex.Match(h.Guid, @"(?:imdb://|agents\.imdb://)(tt\d+)", RegexOptions.IgnoreCase);
+                            if (imdbMatch.Success && imdbMap.TryGetValue(imdbMatch.Groups[1].Value.ToLowerInvariant(), out var byImdb))
+                            {
+                                matchedItem = byImdb;
+                            }
+                            else
+                            {
+                                var tmdbMatch = Regex.Match(h.Guid, @"(?:tmdb://|themoviedb://)(\d+)", RegexOptions.IgnoreCase);
+                                if (tmdbMatch.Success && tmdbMap.TryGetValue(tmdbMatch.Groups[1].Value, out var byTmdb))
+                                {
+                                    matchedItem = byTmdb;
+                                }
+                                else
+                                {
+                                    var tvdbMatch = Regex.Match(h.Guid, @"(?:tvdb://|thetvdb://)(\d+)", RegexOptions.IgnoreCase);
+                                    if (tvdbMatch.Success && tvdbMap.TryGetValue(tvdbMatch.Groups[1].Value, out var byTvdb))
+                                    {
+                                        matchedItem = byTvdb;
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Fallback to typed title match (for movies, match with year if available; for episodes, match show title)
                         if (matchedItem == null)
                         {
                             var norm = NormalizeTitle(showOrMovieTitle);
-                            if (h.Year.HasValue && exactItemMap.TryGetValue($"{(int)expectedType}:{norm}:{h.Year.Value}", out var exact))
+                            if (!isEpisode && h.Year.HasValue && exactItemMap.TryGetValue($"{(int)expectedType}:{norm}:{h.Year.Value}", out var exact))
                             {
                                 matchedItem = exact;
                             }
@@ -420,8 +512,10 @@ public class CatalogSyncService : ICatalogSyncService
     private static string NormalizeTitle(string? title)
     {
         if (string.IsNullOrWhiteSpace(title)) return string.Empty;
-        // Strip non-alphanumeric characters for fuzzy resilient title matching
-        return Regex.Replace(title, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
+        // Strip parenthesized 4-digit years like (2026), (2001) for resilient title matching
+        var stripped = Regex.Replace(title, @"\s*\(\d{4}\)", "").Trim();
+        // Strip non-alphanumeric characters
+        return Regex.Replace(stripped, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
     }
 
     private static string ComputeDeterministicId(string input)
