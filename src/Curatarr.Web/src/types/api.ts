@@ -104,3 +104,14 @@ export interface DiscoveredService {
   port?: number;
   details?: string;
 }
+
+export interface CuratarrSettings {
+  movieSpaceHogThresholdBytes: number;
+  movie4kSpaceHogThresholdBytes: number;
+  seriesEpisodeSpaceHogThresholdBytes: number;
+  staleDays: number;
+  abandonedDays: number;
+  movieSpaceHogGb: number;
+  movie4kSpaceHogGb: number;
+  seriesEpisodeSpaceHogGb: number;
+}

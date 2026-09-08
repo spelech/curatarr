@@ -9,10 +9,12 @@ namespace Curatarr.Infrastructure.Repositories;
 public class MediaRepository : IMediaRepository
 {
     private readonly SqliteConnectionFactory _factory;
+    private readonly ISettingsRepository _settingsRepo;
 
-    public MediaRepository(SqliteConnectionFactory factory)
+    public MediaRepository(SqliteConnectionFactory factory, ISettingsRepository? settingsRepo = null)
     {
         _factory = factory;
+        _settingsRepo = settingsRepo ?? new SettingsRepository(factory);
     }
 
     public async Task<MediaItem?> GetByIdAsync(string id, CancellationToken ct = default)
@@ -90,6 +92,7 @@ public class MediaRepository : IMediaRepository
         using var conn = _factory.CreateConnection();
         var whereClauses = new List<string>();
         var parameters = new DynamicParameters();
+        var settings = await _settingsRepo.GetSettingsAsync(ct);
 
         if (options.MediaTypeFilter.HasValue)
         {
@@ -120,7 +123,7 @@ public class MediaRepository : IMediaRepository
                     whereClauses.Add("(SELECT COALESCE(SUM(ws.play_count), 0) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)) > 0");
                     whereClauses.Add("(SELECT MAX(ws.last_played_at) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)) < @StaleDate");
                     parameters.Add("UserId", options.UserIdFilter);
-                    parameters.Add("StaleDate", DateTime.UtcNow.AddDays(-180).ToString("o"));
+                    parameters.Add("StaleDate", DateTime.UtcNow.AddDays(-settings.StaleDays).ToString("o"));
                     break;
                 case SmartCategoryIds.CutoffUnmet:
                     whereClauses.Add("m.is_protected = 0");
@@ -128,8 +131,23 @@ public class MediaRepository : IMediaRepository
                     break;
                 case SmartCategoryIds.SpaceHogs:
                     whereClauses.Add("m.is_protected = 0");
-                    whereClauses.Add("m.total_size_bytes > @MinSize");
-                    parameters.Add("MinSize", 15_000_000_000L); // > 15 GB
+                    whereClauses.Add(@"
+                        (
+                            (m.media_type = 0 AND (
+                                (EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.resolution = '4K') AND m.total_size_bytes > @Movie4kThresholdBytes)
+                                OR
+                                (NOT EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.resolution = '4K') AND m.total_size_bytes > @MovieThresholdBytes)
+                            ))
+                            OR
+                            (m.media_type = 1 AND (
+                                SELECT COALESCE(SUM(s.episode_file_count), 0) FROM seasons s WHERE s.media_item_id = m.id
+                            ) > 0 AND (
+                                m.total_size_bytes / (SELECT SUM(s.episode_file_count) FROM seasons s WHERE s.media_item_id = m.id)
+                            ) > @SeriesEpisodeThresholdBytes)
+                        )");
+                    parameters.Add("Movie4kThresholdBytes", settings.Movie4kSpaceHogThresholdBytes);
+                    parameters.Add("MovieThresholdBytes", settings.MovieSpaceHogThresholdBytes);
+                    parameters.Add("SeriesEpisodeThresholdBytes", settings.SeriesEpisodeSpaceHogThresholdBytes);
                     break;
                 case SmartCategoryIds.Missing:
                     whereClauses.Add("m.is_protected = 0");
@@ -139,7 +157,7 @@ public class MediaRepository : IMediaRepository
                     whereClauses.Add("m.is_protected = 0 AND m.media_type = 1"); // Series
                     whereClauses.Add("EXISTS (SELECT 1 FROM watch_stats ws WHERE ws.media_item_id = m.id AND ws.play_count > 0)");
                     whereClauses.Add("(SELECT MAX(ws.last_played_at) FROM watch_stats ws WHERE ws.media_item_id = m.id) < @AbandonedDate");
-                    parameters.Add("AbandonedDate", DateTime.UtcNow.AddDays(-90).ToString("o"));
+                    parameters.Add("AbandonedDate", DateTime.UtcNow.AddDays(-settings.AbandonedDays).ToString("o"));
                     break;
             }
         }

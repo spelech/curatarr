@@ -22,6 +22,7 @@ builder.Services.AddSingleton(new SqliteConnectionFactory(defaultConnectionStrin
 builder.Services.AddSingleton<DatabaseInitializer>();
 
 // Repositories
+builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IConnectionRepository, ConnectionRepository>();
 builder.Services.AddSingleton<IMediaRepository, MediaRepository>();
 builder.Services.AddSingleton<IAuditRepository, AuditRepository>();
@@ -218,6 +219,7 @@ app.MapPost("/mcp/messages", async (HttpContext context, CuratarrMcpRegistry reg
 // Map REST API Endpoints
 app.MapCatalogEndpoints();
 app.MapConnectionEndpoints();
+app.MapSettingsEndpoints();
 app.MapPruneAndSyncEndpoints();
 app.MapDiscoveryEndpoints();
 

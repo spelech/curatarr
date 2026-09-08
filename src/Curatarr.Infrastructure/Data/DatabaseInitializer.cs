@@ -113,6 +113,12 @@ public class DatabaseInitializer
             details TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(media_type);
         CREATE INDEX IF NOT EXISTS idx_media_protected ON media_items(is_protected);
         CREATE INDEX IF NOT EXISTS idx_media_added ON media_items(added_at);

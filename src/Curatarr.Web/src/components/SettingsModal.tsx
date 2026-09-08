@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, Plus, Trash2, CheckCircle2, XCircle, X, Radio, Loader2, Sparkles } from 'lucide-react';
+import { Settings, Plus, Trash2, CheckCircle2, XCircle, X, Radio, Loader2, Sparkles, SlidersHorizontal } from 'lucide-react';
 import { useConnectionStore } from '../stores/useConnectionStore';
 import { DiscoveredService, ServiceConnection } from '../types/api';
+import { ThresholdSettingsTab } from './ThresholdSettingsTab';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'connections' | 'thresholds'>('connections');
   const {
     connections,
     fetchConnections,
@@ -70,14 +72,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl animate-fade-in max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-sky-500/10 border border-sky-500/20 rounded-lg text-sky-400">
               <Settings className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Service Connections</h2>
-              <p className="text-xs text-slate-400">Connect your Arr instances, Plex, and Tautulli</p>
+              <h2 className="text-base font-bold text-white">Settings</h2>
+              <p className="text-xs text-slate-400">Configure service connections, storage limits, and curation rules</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white transition">
@@ -85,9 +87,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </button>
         </div>
 
-        {/* Connections List or Form */}
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('connections')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+              activeTab === 'connections'
+                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>Service Connections</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('thresholds')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+              activeTab === 'thresholds'
+                ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Rules & Thresholds</span>
+          </button>
+        </div>
+
+        {/* Tab Content */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
-          {editingConn ? (
+          {activeTab === 'thresholds' ? (
+            <ThresholdSettingsTab />
+          ) : editingConn ? (
             <form onSubmit={handleSave} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-3.5 text-xs">
               <div className="font-semibold text-white">
                 {editingConn.id ? 'Edit Connection' : 'Add New Connection'}
