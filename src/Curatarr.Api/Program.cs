@@ -76,7 +76,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "healthy",
     service = "curatarr",
-    version = "1.0.0",
+    version = "1.1.0",
     timestamp = DateTime.UtcNow
 }));
 
@@ -98,7 +98,7 @@ async Task<JsonRpcResponse> HandleJsonRpcAsync(JsonRpcRequest req, CuratarrMcpRe
                 serverInfo = new
                 {
                     name = "curatarr",
-                    version = "1.0.0"
+                    version = "1.1.0"
                 }
             };
             break;

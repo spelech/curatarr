@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-08
+
+### Added
+- TanStack Virtual (`@tanstack/react-virtual`) virtualized rendering for both responsive poster GridView and compact TableView.
+- Infinite progressive batch loading in `useCatalogStore` with customizable page sizes, eliminating hardcoded candidate limits.
+- Dynamic user-configurable threshold settings for Space Hogs (resolution-aware 4K/HD movies and per-episode series thresholds) and inactivity periods (Stale and Abandoned).
+- Dynamic background sync scheduling with configurable intervals and transient error backoff.
+- Dedicated System Schedule & Performance settings controls in the Web UI.
+
+### Fixed
+- Never Watched filter now accurately ignores shows with any watched episodes.
+- Ingestion and display of added dates and poster URLs from Sonarr and Radarr.
+
 ## [1.0.0] - 2026-09-07
 
 ### Added
