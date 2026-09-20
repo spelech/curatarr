@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Film, Tv, Shield, Trash2, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { Film, Tv, Shield, Trash2, ChevronDown, ChevronUp, Eye, History } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { SeasonDrawer } from './SeasonDrawer';
-import { getItemBadges } from '../utils/badgeUtils';
+import { getItemBadges, itemPredatesWatchHistory } from '../utils/badgeUtils';
 
 interface MediaCardProps {
   item: MediaItem;
@@ -47,6 +47,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
   const badges = getItemBadges(item);
   const hasCutoffUnmet = item.instances.some((i) => i.cutoffUnmet);
+  const predatesTracking = itemPredatesWatchHistory(item);
 
   return (
     <div
@@ -99,6 +100,16 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                   title="Quality cutoff unmet in Arr"
                 >
                   Cutoff
+                </span>
+              )}
+              {predatesTracking && (
+                <span
+                  data-testid="predates-tracking-badge"
+                  className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm flex items-center gap-0.5"
+                  title="Added before watch history tracking began (July 2017). May have been watched previously."
+                >
+                  <History className="w-2.5 h-2.5" />
+                  Pre-2017
                 </span>
               )}
             </div>

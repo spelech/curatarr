@@ -25,15 +25,17 @@ public class SmartCategoryEngine : ISmartCategoryEngine
 
         var staleDate = DateTime.UtcNow.AddDays(-settings.StaleDays).ToString("o");
         var abandonedDate = DateTime.UtcNow.AddDays(-settings.AbandonedDays).ToString("o");
+        var neverWatchedMaxAddedDate = DateTime.UtcNow.AddDays(-settings.NeverWatchedMinAgeDays).ToString("o");
 
         // Never Watched
-        const string sqlNever = @"
+        var sqlNever = $@"
             SELECT COUNT(*) as Count, COALESCE(SUM(m.total_size_bytes), 0) as Size
             FROM media_items m
             WHERE m.is_protected = 0
-              AND (SELECT COALESCE(SUM(ws.play_count), 0) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)) = 0;";
+              AND (SELECT COALESCE(SUM(ws.play_count), 0) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)) = 0
+              {(settings.NeverWatchedMinAgeDays > 0 ? "AND (m.added_at IS NULL OR m.added_at <= @NeverWatchedMaxAddedDate)" : "")};";
 
-        var never = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlNever, new { UserId = userIdFilter }, cancellationToken: ct));
+        var never = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlNever, new { UserId = userIdFilter, NeverWatchedMaxAddedDate = neverWatchedMaxAddedDate }, cancellationToken: ct));
 
         // Stale
         const string sqlStale = @"
@@ -109,7 +111,7 @@ public class SmartCategoryEngine : ISmartCategoryEngine
 
         return
         [
-            new CategoryCountSummary(SmartCategoryIds.NeverWatched, "Never Watched", never.Count, never.Size),
+            new CategoryCountSummary(SmartCategoryIds.NeverWatched, settings.NeverWatchedMinAgeDays > 0 ? $"Never Watched (>{settings.NeverWatchedMinAgeDays}d)" : "Never Watched", never.Count, never.Size),
             new CategoryCountSummary(SmartCategoryIds.Stale, $"Stale (>{settings.StaleDays}d)", stale.Count, stale.Size),
             new CategoryCountSummary(SmartCategoryIds.Abandoned, "Abandoned TV", abandoned.Count, abandoned.Size),
             new CategoryCountSummary(SmartCategoryIds.CutoffUnmet, "Cutoff Unmet", cutoff.Count, cutoff.Size),

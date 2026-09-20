@@ -12,6 +12,7 @@ export const ThresholdSettingsTab: React.FC = () => {
   const [seriesEpisodeSpaceHogGb, setSeriesEpisodeSpaceHogGb] = useState(DEFAULT_SETTINGS.seriesEpisodeSpaceHogGb);
   const [staleDays, setStaleDays] = useState(DEFAULT_SETTINGS.staleDays);
   const [abandonedDays, setAbandonedDays] = useState(DEFAULT_SETTINGS.abandonedDays);
+  const [neverWatchedMinAgeDays, setNeverWatchedMinAgeDays] = useState(DEFAULT_SETTINGS.neverWatchedMinAgeDays);
   const [syncIntervalHours, setSyncIntervalHours] = useState(DEFAULT_SETTINGS.syncIntervalHours);
   const [catalogBatchSize, setCatalogBatchSize] = useState(DEFAULT_SETTINGS.catalogBatchSize);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -27,6 +28,7 @@ export const ThresholdSettingsTab: React.FC = () => {
       setSeriesEpisodeSpaceHogGb(settings.seriesEpisodeSpaceHogGb);
       setStaleDays(settings.staleDays);
       setAbandonedDays(settings.abandonedDays);
+      setNeverWatchedMinAgeDays(settings.neverWatchedMinAgeDays ?? DEFAULT_SETTINGS.neverWatchedMinAgeDays);
       setSyncIntervalHours(settings.syncIntervalHours ?? DEFAULT_SETTINGS.syncIntervalHours);
       setCatalogBatchSize(settings.catalogBatchSize ?? DEFAULT_SETTINGS.catalogBatchSize);
     }
@@ -42,6 +44,7 @@ export const ThresholdSettingsTab: React.FC = () => {
       seriesEpisodeSpaceHogThresholdBytes: Math.round(seriesEpisodeSpaceHogGb * 1024 * 1024 * 1024),
       staleDays,
       abandonedDays,
+      neverWatchedMinAgeDays,
       syncIntervalHours,
       catalogBatchSize,
       movieSpaceHogGb,
@@ -64,6 +67,7 @@ export const ThresholdSettingsTab: React.FC = () => {
     setSeriesEpisodeSpaceHogGb(DEFAULT_SETTINGS.seriesEpisodeSpaceHogGb);
     setStaleDays(DEFAULT_SETTINGS.staleDays);
     setAbandonedDays(DEFAULT_SETTINGS.abandonedDays);
+    setNeverWatchedMinAgeDays(DEFAULT_SETTINGS.neverWatchedMinAgeDays);
     setSyncIntervalHours(DEFAULT_SETTINGS.syncIntervalHours);
     setCatalogBatchSize(DEFAULT_SETTINGS.catalogBatchSize);
   };
@@ -168,10 +172,32 @@ export const ThresholdSettingsTab: React.FC = () => {
           <span>Inactivity & Staleness Thresholds</span>
         </div>
         <p className="text-[11px] text-slate-400">
-          Configure how many days must elapse without watch activity to categorize titles as Stale or Abandoned.
+          Configure how many days must elapse without watch activity to categorize titles as Stale or Abandoned, and the minimum library age for Never Watched candidates.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
+          {/* Never Watched Min Age */}
+          <div className="space-y-1 bg-slate-900/60 border border-slate-800 p-3 rounded-lg">
+            <label className="text-slate-300 font-medium flex items-center gap-1.5">
+              <span>Never Watched Min Age</span>
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                max="3650"
+                value={neverWatchedMinAgeDays}
+                onChange={(e) => setNeverWatchedMinAgeDays(parseInt(e.target.value) || 0)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-md px-2.5 py-1.5 text-white font-mono focus:border-sky-500 focus:outline-none"
+              />
+              <span className="text-[11px] font-mono text-slate-400 shrink-0">Days</span>
+            </div>
+            <p className="text-[10px] text-slate-500 pt-1">
+              Minimum library age before appearing in Never Watched (Default: 60 days. Set to 0 to disable).
+            </p>
+          </div>
+
           {/* Stale */}
           <div className="space-y-1 bg-slate-900/60 border border-slate-800 p-3 rounded-lg">
             <label className="text-slate-300 font-medium flex items-center gap-1.5">

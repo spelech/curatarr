@@ -90,7 +90,8 @@ public record PlexMetadataItemDto(
     int? Year,
     int ViewCount = 0,
     DateTime? LastViewedAt = null,
-    IReadOnlyList<string>? Guids = null
+    IReadOnlyList<string>? Guids = null,
+    DateTime? AddedAt = null
 );
 
 public record OverseerrRequestDto(

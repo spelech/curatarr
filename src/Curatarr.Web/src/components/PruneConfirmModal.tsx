@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { MediaItem } from '../types/api';
 
@@ -18,16 +18,24 @@ export const PruneConfirmModal: React.FC<PruneConfirmModalProps> = ({
   onConfirm,
 }) => {
   // Extract all unique connection IDs across all items
-  const allInstances = items.flatMap((i) => i.instances);
-  const uniqueConnections = Array.from(
-    new Map(allInstances.map((i) => [i.connectionId, i.qualityProfileName || 'Default'])).entries()
-  );
+  const uniqueConnections = useMemo(() => {
+    const allInstances = items.flatMap((i) => i.instances);
+    return Array.from(
+      new Map(allInstances.map((i) => [i.connectionId, i.qualityProfileName || 'Default'])).entries()
+    );
+  }, [items]);
 
   const [selectedConnections, setSelectedConnections] = useState<string[]>(
     uniqueConnections.map(([id]) => id)
   );
   const [addImportExclusion, setAddImportExclusion] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && items.length > 0) {
+      setSelectedConnections(uniqueConnections.map(([id]) => id));
+    }
+  }, [isOpen, items, uniqueConnections]);
 
   if (!isOpen || items.length === 0) return null;
 

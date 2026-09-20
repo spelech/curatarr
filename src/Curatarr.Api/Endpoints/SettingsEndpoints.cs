@@ -23,6 +23,7 @@ public static class SettingsEndpoints
                 incoming.SeriesEpisodeSpaceHogThresholdBytes < 0 ||
                 incoming.StaleDays < 1 ||
                 incoming.AbandonedDays < 1 ||
+                incoming.NeverWatchedMinAgeDays < 0 || incoming.NeverWatchedMinAgeDays > 3650 ||
                 incoming.SyncIntervalHours < 1 || incoming.SyncIntervalHours > 168 ||
                 incoming.CatalogBatchSize < 10 || incoming.CatalogBatchSize > 500)
             {

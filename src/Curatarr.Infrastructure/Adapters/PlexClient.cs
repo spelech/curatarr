@@ -115,7 +115,20 @@ public class PlexClient : IPlexClient
                     }
                 }
 
-                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt, guidList));
+                DateTime? addedAt = null;
+                if (el.TryGetProperty("addedAt", out var aa))
+                {
+                    if (aa.ValueKind == JsonValueKind.Number && aa.TryGetInt64(out var aaNum))
+                    {
+                        addedAt = DateTimeOffset.FromUnixTimeSeconds(aaNum).UtcDateTime;
+                    }
+                    else if (aa.ValueKind == JsonValueKind.String && long.TryParse(aa.GetString(), out var aaParsed))
+                    {
+                        addedAt = DateTimeOffset.FromUnixTimeSeconds(aaParsed).UtcDateTime;
+                    }
+                }
+
+                list.Add(new PlexMetadataItemDto(ratingKey, title, type, guid, year, viewCount, lastViewedAt, guidList, addedAt));
             }
         }
 

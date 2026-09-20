@@ -134,3 +134,22 @@ export function getInstanceTitle(inst: MediaInstance, isSeries?: boolean): strin
   const tierFromId = connId.includes('4k') ? '4K' : 'HD';
   return `${servicePrefix} ${tierFromId}`;
 }
+
+export const TAUTULLI_TRACKING_START_DATE = '2017-07-15T00:00:00Z';
+
+/**
+ * Checks if an unwatched media item was added prior to Tautulli tracking (July 15, 2017).
+ */
+export function itemPredatesWatchHistory(
+  item: MediaItem,
+  trackingStartDate: string = TAUTULLI_TRACKING_START_DATE
+): boolean {
+  const totalPlays = item.watchStats?.reduce((sum, w) => sum + w.playCount, 0) ?? 0;
+  if (totalPlays > 0) return false;
+
+  if (item.addedAt) {
+    return new Date(item.addedAt).getTime() < new Date(trackingStartDate).getTime();
+  }
+
+  return !!(item.year && item.year <= 2017);
+}

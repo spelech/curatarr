@@ -46,6 +46,7 @@ public class SettingsAndThresholdTests : IDisposable
         defaults.SeriesEpisodeSpaceHogGb.Should().Be(2.5);
         defaults.StaleDays.Should().Be(180);
         defaults.AbandonedDays.Should().Be(90);
+        defaults.NeverWatchedMinAgeDays.Should().Be(60);
         defaults.SyncIntervalHours.Should().Be(1);
         defaults.CatalogBatchSize.Should().Be(50);
 
@@ -57,6 +58,7 @@ public class SettingsAndThresholdTests : IDisposable
             SeriesEpisodeSpaceHogGb = 4.0,
             StaleDays = 365,
             AbandonedDays = 120,
+            NeverWatchedMinAgeDays = 90,
             SyncIntervalHours = 4,
             CatalogBatchSize = 100
         };
@@ -69,6 +71,7 @@ public class SettingsAndThresholdTests : IDisposable
         reloaded.SeriesEpisodeSpaceHogGb.Should().Be(4.0);
         reloaded.StaleDays.Should().Be(365);
         reloaded.AbandonedDays.Should().Be(120);
+        reloaded.NeverWatchedMinAgeDays.Should().Be(90);
         reloaded.SyncIntervalHours.Should().Be(4);
         reloaded.CatalogBatchSize.Should().Be(100);
     }
@@ -147,5 +150,72 @@ public class SettingsAndThresholdTests : IDisposable
         var spaceItems = await _mediaRepo.GetPagedAsync(new MediaFilterOptions(CategoryId: SmartCategoryIds.SpaceHogs));
         spaceItems.Should().HaveCount(2);
         spaceItems.Select(x => x.Id).Should().BeEquivalentTo(new[] { "series-heavy", "movie-1080p-heavy" });
+    }
+
+    [Fact]
+    public async Task NeverWatched_ShouldRespectMinAgeDaysThresholdAndExcludeRecentlyAddedTitles()
+    {
+        await _initializer.InitializeAsync();
+
+        // 1. Movie added 90 days ago with 0 plays -> SHOULD be in Never Watched (exceeds default 60d threshold)
+        var oldUnwatchedMovie = new MediaItem
+        {
+            Id = "movie-old-unwatched",
+            MediaType = MediaType.Movie,
+            Title = "Old Unwatched Movie",
+            SortTitle = "Old Unwatched Movie",
+            AddedAt = DateTime.UtcNow.AddDays(-90),
+            TotalSizeBytes = 10L * 1024 * 1024 * 1024
+        };
+
+        // 2. Movie added 10 days ago with 0 plays -> SHOULD NOT be in Never Watched (recently added)
+        var newUnwatchedMovie = new MediaItem
+        {
+            Id = "movie-new-unwatched",
+            MediaType = MediaType.Movie,
+            Title = "Fresh Download Movie",
+            SortTitle = "Fresh Download Movie",
+            AddedAt = DateTime.UtcNow.AddDays(-10),
+            TotalSizeBytes = 8L * 1024 * 1024 * 1024
+        };
+
+        // 3. Movie added 90 days ago but has watch stats -> SHOULD NOT be in Never Watched
+        var oldWatchedMovie = new MediaItem
+        {
+            Id = "movie-old-watched",
+            MediaType = MediaType.Movie,
+            Title = "Old Watched Movie",
+            SortTitle = "Old Watched Movie",
+            AddedAt = DateTime.UtcNow.AddDays(-90),
+            TotalSizeBytes = 12L * 1024 * 1024 * 1024,
+            WatchStats =
+            [
+                new WatchStat
+                {
+                    Id = "ws-1",
+                    MediaItemId = "movie-old-watched",
+                    UserId = "user-1",
+                    Username = "steve",
+                    PlayCount = 2,
+                    LastPlayedAt = DateTime.UtcNow.AddDays(-20)
+                }
+            ]
+        };
+
+        await _mediaRepo.UpsertBatchAsync([oldUnwatchedMovie, newUnwatchedMovie, oldWatchedMovie]);
+
+        // Summaries evaluation
+        var summaries = await _categoryEngine.GetSummariesAsync(null);
+        var neverSummary = summaries.First(s => s.CategoryId == SmartCategoryIds.NeverWatched);
+
+        // Expected: only oldUnwatchedMovie (1 item, 10 GB)
+        neverSummary.Count.Should().Be(1);
+        neverSummary.ReclaimableSizeBytes.Should().Be(10L * 1024 * 1024 * 1024);
+        neverSummary.Name.Should().Be("Never Watched (>60d)");
+
+        // Paged items evaluation
+        var neverItems = await _mediaRepo.GetPagedAsync(new MediaFilterOptions(CategoryId: SmartCategoryIds.NeverWatched));
+        neverItems.Should().HaveCount(1);
+        neverItems[0].Id.Should().Be("movie-old-unwatched");
     }
 }

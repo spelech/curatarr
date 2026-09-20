@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Film } from 'lucide-react';
 import { useCatalogStore } from './stores/useCatalogStore';
+import { useConnectionStore } from './stores/useConnectionStore';
+import { useToastStore } from './stores/useToastStore';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ControlBar } from './components/ControlBar';
@@ -11,25 +13,36 @@ import { PruneConfirmModal } from './components/PruneConfirmModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuditLogModal } from './components/AuditLogModal';
 import { MediaDetailModal } from './components/MediaDetailModal';
+import { ToastContainer } from './components/ToastContainer';
 import { MediaItem } from './types/api';
 
+const formatSize = (bytes: number) => {
+  const gb = bytes / (1024 * 1024 * 1024);
+  return gb >= 1000 ? `${(gb / 1024).toFixed(1)} TB` : `${gb.toFixed(1)} GB`;
+};
+
 export default function App() {
-  const {
-    items,
-    selectedIds,
-    toggleSelect,
-    toggleProtect,
-    viewMode,
-    isLoading,
-    isLoadingMore,
-    hasMore,
-    fetchCategories,
-    fetchUsers,
-    fetchItems,
-    loadMore,
-    clearSelection,
-    executePrune,
-  } = useCatalogStore();
+  const items = useCatalogStore((state) => state.items);
+  const selectedIds = useCatalogStore((state) => state.selectedIds);
+  const toggleSelect = useCatalogStore((state) => state.toggleSelect);
+  const toggleProtect = useCatalogStore((state) => state.toggleProtect);
+  const viewMode = useCatalogStore((state) => state.viewMode);
+  const isLoading = useCatalogStore((state) => state.isLoading);
+  const isLoadingMore = useCatalogStore((state) => state.isLoadingMore);
+  const hasMore = useCatalogStore((state) => state.hasMore);
+  const fetchCategories = useCatalogStore((state) => state.fetchCategories);
+  const fetchUsers = useCatalogStore((state) => state.fetchUsers);
+  const fetchItems = useCatalogStore((state) => state.fetchItems);
+  const loadMore = useCatalogStore((state) => state.loadMore);
+  const clearSelection = useCatalogStore((state) => state.clearSelection);
+  const executePrune = useCatalogStore((state) => state.executePrune);
+  const refreshPlex = useCatalogStore((state) => state.refreshPlex);
+
+  const connections = useConnectionStore((state) => state.connections);
+  const fetchConnections = useConnectionStore((state) => state.fetchConnections);
+
+  const addToast = useToastStore((state) => state.addToast);
+  const removeToast = useToastStore((state) => state.removeToast);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
@@ -47,7 +60,8 @@ export default function App() {
     fetchCategories();
     fetchUsers();
     fetchItems();
-  }, [fetchCategories, fetchUsers, fetchItems]);
+    fetchConnections();
+  }, [fetchCategories, fetchUsers, fetchItems, fetchConnections]);
 
   const selectedItems = items.filter((i) => selectedIds.has(i.id));
 
@@ -70,12 +84,81 @@ export default function App() {
 
   // Execute Prune Confirmation
   const handleConfirmPrune = async (targetConnectionIds: string[], addImportExclusion: boolean) => {
+    let allSucceeded = true;
+
     for (const item of pruneModalState.items) {
-      await executePrune({
-        mediaItemId: item.id,
-        seasonNumber: pruneModalState.seasonNumber,
-        targetConnectionIds,
-        addImportExclusion,
+      const inProgressToastId = addToast({
+        type: 'info',
+        title: `Pruning ${item.title}...`,
+        duration: null,
+      });
+
+      try {
+        const res = await executePrune({
+          mediaItemId: item.id,
+          seasonNumber: pruneModalState.seasonNumber,
+          targetConnectionIds,
+          addImportExclusion,
+        });
+
+        removeToast(inProgressToastId);
+
+        if (res.success) {
+          const connNames = targetConnectionIds
+            .map((id) => {
+              const c = connections.find((conn) => conn.id === id);
+              if (c?.name) return c.name;
+              const inst = item.instances?.find((i) => i.connectionId === id);
+              return inst?.qualityProfileName || 'Arr';
+            })
+            .filter(Boolean);
+          const targetConnectionsStr =
+            connNames.length > 0 ? Array.from(new Set(connNames)).join(', ') : 'Arr';
+
+          addToast({
+            type: 'success',
+            title: `Deleted from ${targetConnectionsStr} & Disk`,
+            message: `${formatSize(res.bytesFreed)} reclaimed`,
+            duration: 5000,
+          });
+        } else {
+          allSucceeded = false;
+          addToast({
+            type: 'error',
+            title: `Failed to prune ${item.title}`,
+            message: res.message || 'Prune operation failed',
+            duration: 5000,
+          });
+        }
+      } catch (err: unknown) {
+        removeToast(inProgressToastId);
+        allSucceeded = false;
+        addToast({
+          type: 'error',
+          title: `Failed to prune ${item.title}`,
+          message: (err as Error).message || 'Unexpected error occurred',
+          duration: 5000,
+        });
+      }
+    }
+
+    if (allSucceeded && pruneModalState.items.length > 0) {
+      addToast({
+        type: 'warning',
+        title: 'Prune Complete: Manual Steps',
+        message: 'Arr instances and disk files have been deleted. Complete these follow-up actions:',
+        manualSteps: [
+          'Plex: Empty Trash in your Plex library if automatic emptying is disabled.',
+          "Overseerr / Seerr: Media will show as 'Available' until the next scheduled library sync.",
+          'Download Client: Verify hardlinked or seeded downloads in your torrent/usenet client.',
+        ],
+        duration: null,
+        action: {
+          label: 'Scan Plex Libraries',
+          onClick: async () => {
+            await refreshPlex();
+          },
+        },
       });
     }
   };
@@ -191,6 +274,9 @@ export default function App() {
         isOpen={isAuditOpen}
         onClose={() => setIsAuditOpen(false)}
       />
+
+      {/* Toast Notifications */}
+      <ToastContainer />
     </div>
   );
 }
