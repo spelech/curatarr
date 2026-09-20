@@ -11,6 +11,9 @@ public record CuratarrSettings
     public int StaleDays { get; init; } = 180;
     public int AbandonedDays { get; init; } = 90;
 
+    // Never Watched threshold (minimum days item must be in library before appearing in Never Watched)
+    public int NeverWatchedMinAgeDays { get; init; } = 60; // 60 days default
+
     // Background Sync schedule & pagination defaults
     public int SyncIntervalHours { get; init; } = 1;
     public int CatalogBatchSize { get; init; } = 50;

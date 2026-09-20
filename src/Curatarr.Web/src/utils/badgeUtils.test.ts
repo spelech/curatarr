@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getItemBadges, getInstanceBadge, getInstanceTitle } from './badgeUtils';
+import { getItemBadges, getInstanceBadge, getInstanceTitle, itemPredatesWatchHistory } from './badgeUtils';
 import { MediaItem, MediaInstance } from '../types/api';
 
 describe('badgeUtils', () => {
@@ -165,6 +165,62 @@ describe('badgeUtils', () => {
         qualityProfileName: '4K',
       });
       expect(getInstanceTitle(instSonarr4k, true)).toBe('Sonarr 4K');
+    });
+  });
+
+  describe('itemPredatesWatchHistory', () => {
+    it('should return true for unwatched item added before July 15, 2017', () => {
+      const item: MediaItem = {
+        ...createItem([]),
+        addedAt: '2017-05-06T13:47:30Z',
+        watchStats: [],
+      };
+      expect(itemPredatesWatchHistory(item)).toBe(true);
+    });
+
+    it('should return false for unwatched item added after July 15, 2017', () => {
+      const item: MediaItem = {
+        ...createItem([]),
+        addedAt: '2019-03-10T12:00:00Z',
+        watchStats: [],
+      };
+      expect(itemPredatesWatchHistory(item)).toBe(false);
+    });
+
+    it('should return false if item has recorded watch history, even if added pre-2017', () => {
+      const item: MediaItem = {
+        ...createItem([]),
+        addedAt: '2016-01-01T00:00:00Z',
+        watchStats: [
+          {
+            id: 'ws-1',
+            mediaItemId: 'item-1',
+            userId: 'u1',
+            username: 'steve',
+            playCount: 1,
+            lastPlayedAt: '2020-01-01T00:00:00Z',
+          },
+        ],
+      };
+      expect(itemPredatesWatchHistory(item)).toBe(false);
+    });
+
+    it('should fall back to year <= 2017 if addedAt is missing', () => {
+      const itemPre2017: MediaItem = {
+        ...createItem([]),
+        year: 2015,
+        addedAt: undefined,
+        watchStats: [],
+      };
+      expect(itemPredatesWatchHistory(itemPre2017)).toBe(true);
+
+      const itemPost2017: MediaItem = {
+        ...createItem([]),
+        year: 2022,
+        addedAt: undefined,
+        watchStats: [],
+      };
+      expect(itemPredatesWatchHistory(itemPost2017)).toBe(false);
     });
   });
 });

@@ -14,9 +14,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
+  History,
 } from 'lucide-react';
 import { MediaItem } from '../types/api';
-import { getInstanceTitle, getBadgeStyle } from '../utils/badgeUtils';
+import { getInstanceTitle, getBadgeStyle, itemPredatesWatchHistory } from '../utils/badgeUtils';
 
 interface MediaDetailModalProps {
   item: MediaItem | null;
@@ -326,8 +327,26 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
               Watch History ({item.watchStats.length} user records)
             </h3>
             {item.watchStats.length === 0 ? (
-              <div className="p-4 bg-slate-950/40 border border-slate-800/80 rounded-xl text-slate-500 text-center italic">
-                No recorded watch sessions from Tautulli or Plex.
+              <div className="space-y-2">
+                <div className="p-4 bg-slate-950/40 border border-slate-800/80 rounded-xl text-slate-500 text-center italic">
+                  No recorded watch sessions from Tautulli or Plex.
+                </div>
+                {itemPredatesWatchHistory(item) && (
+                  <div
+                    data-testid="detail-predates-tracking-alert"
+                    className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-start gap-2.5"
+                  >
+                    <History className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-white block">Pre-dates Watch History Tracking</span>
+                      <span className="text-amber-200/80 text-[11px] block mt-0.5">
+                        {item.addedAt
+                          ? `This title was added to your library in ${formatDate(item.addedAt)}, before Tautulli watch history tracking began in July 2017.`
+                          : 'This title predates Tautulli watch history tracking (began July 2017).'} It may have been watched without an active logging session.
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60">

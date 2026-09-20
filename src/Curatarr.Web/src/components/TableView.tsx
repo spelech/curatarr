@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Film, Tv, Shield, Trash2 } from 'lucide-react';
+import { Film, Tv, Shield, Trash2, History } from 'lucide-react';
 import { MediaItem } from '../types/api';
-import { getInstanceBadge } from '../utils/badgeUtils';
+import { getInstanceBadge, itemPredatesWatchHistory } from '../utils/badgeUtils';
 
 interface TableViewProps {
   items: MediaItem[];
@@ -146,7 +146,19 @@ export const TableView: React.FC<TableViewProps> = ({
                           </div>
                         )}
                         <div>
-                          <div className="line-clamp-1">{item.title}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="line-clamp-1">{item.title}</span>
+                            {itemPredatesWatchHistory(item) && (
+                              <span
+                                data-testid="predates-tracking-badge"
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-0.5 shrink-0"
+                                title="Added before watch history tracking began (July 2017). May have been watched previously."
+                              >
+                                <History className="w-2.5 h-2.5" />
+                                Pre-2017
+                              </span>
+                            )}
+                          </div>
                           {item.year && <span className="text-slate-500 font-normal text-[11px] font-mono">({item.year})</span>}
                         </div>
                       </div>

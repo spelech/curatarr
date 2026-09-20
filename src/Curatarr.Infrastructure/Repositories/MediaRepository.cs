@@ -116,6 +116,11 @@ public class MediaRepository : IMediaRepository
                 case SmartCategoryIds.NeverWatched:
                     whereClauses.Add("m.is_protected = 0");
                     whereClauses.Add("(SELECT COALESCE(SUM(ws.play_count), 0) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)) = 0");
+                    if (settings.NeverWatchedMinAgeDays > 0)
+                    {
+                        whereClauses.Add("(m.added_at IS NULL OR m.added_at <= @NeverWatchedMaxAddedDate)");
+                        parameters.Add("NeverWatchedMaxAddedDate", DateTime.UtcNow.AddDays(-settings.NeverWatchedMinAgeDays).ToString("o"));
+                    }
                     parameters.Add("UserId", options.UserIdFilter);
                     break;
                 case SmartCategoryIds.Stale:

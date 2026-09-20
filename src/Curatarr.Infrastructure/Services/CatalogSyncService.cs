@@ -349,6 +349,11 @@ public class CatalogSyncService : ICatalogSyncService
                                 matchedItem.PlexRatingKey = pi.RatingKey;
                                 plexRatingKeyMap[pi.RatingKey] = matchedItem;
 
+                                if (pi.AddedAt.HasValue && (!matchedItem.AddedAt.HasValue || pi.AddedAt.Value < matchedItem.AddedAt.Value))
+                                {
+                                    matchedItem.AddedAt = pi.AddedAt.Value;
+                                }
+
                                 if (pi.ViewCount > 0)
                                 {
                                     var stat = matchedItem.WatchStats.FirstOrDefault(ws => ws.UserId == "plex-server");
