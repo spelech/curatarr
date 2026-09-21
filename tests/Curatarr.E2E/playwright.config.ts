@@ -18,6 +18,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'tablet-ipad',
+      use: {
+        viewport: { width: 820, height: 1180 },
+        userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
       name: 'mobile-galaxy',
       use: {
         viewport: { width: 412, height: 915 },

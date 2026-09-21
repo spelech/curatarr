@@ -40,6 +40,7 @@ export const ControlBar: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search titles..."
+            aria-label="Search titles"
             className="w-full pl-8 pr-3 py-1.5 min-h-[28px] bg-slate-950 border border-slate-800 rounded-md text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 text-xs"
           />
         </div>

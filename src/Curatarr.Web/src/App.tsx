@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Film } from 'lucide-react';
 import { useCatalogStore } from './stores/useCatalogStore';
 import { useConnectionStore } from './stores/useConnectionStore';
@@ -66,13 +66,13 @@ export default function App() {
   const selectedItems = items.filter((i) => selectedIds.has(i.id));
 
   // Single Item Prune Trigger
-  const handleOpenSinglePrune = (item: MediaItem, seasonNumber?: number) => {
+  const handleOpenSinglePrune = useCallback((item: MediaItem, seasonNumber?: number) => {
     setPruneModalState({
       isOpen: true,
       items: [item],
       seasonNumber,
     });
-  };
+  }, []);
 
   // Batch Prune Trigger
   const handleOpenBatchPrune = () => {
@@ -189,7 +189,7 @@ export default function App() {
 
         {/* Content View: Grid or Table */}
         {isLoading ? (
-          <div className="border border-dashed border-slate-800 rounded-2xl p-16 text-center text-slate-500 text-xs">
+          <div className="border border-dashed border-slate-800 rounded-2xl p-16 text-center text-slate-400 text-xs">
             <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             Loading catalog candidates...
           </div>
@@ -206,9 +206,9 @@ export default function App() {
             items={items}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
-            onToggleProtect={(id, isProt) => toggleProtect(id, isProt)}
-            onPrune={(item, seasonNum) => handleOpenSinglePrune(item, seasonNum)}
-            onOpenDetail={(item) => setDetailItem(item)}
+            onToggleProtect={toggleProtect}
+            onPrune={handleOpenSinglePrune}
+            onOpenDetail={setDetailItem}
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
@@ -218,9 +218,9 @@ export default function App() {
             items={items}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
-            onToggleProtect={(id, isProt) => toggleProtect(id, isProt)}
-            onPrune={(item) => handleOpenSinglePrune(item)}
-            onOpenDetail={(item) => setDetailItem(item)}
+            onToggleProtect={toggleProtect}
+            onPrune={handleOpenSinglePrune}
+            onOpenDetail={setDetailItem}
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}

@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
           <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
             Curatarr
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30">
-              v1.0
+              v{__APP_VERSION__}
             </span>
           </h1>
           <p className="text-xs text-slate-400">Media Curation & Library Decluttering</p>
