@@ -28,6 +28,26 @@ export default defineConfig({
       },
     },
     {
+      name: 'tablet-samsung-galaxy',
+      use: {
+        viewport: { width: 800, height: 1280 },
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-X210; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
+      name: 'tablet-samsung-galaxy-landscape',
+      use: {
+        viewport: { width: 1280, height: 800 },
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-X210; Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        deviceScaleFactor: 2,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
+    {
       name: 'mobile-galaxy',
       use: {
         viewport: { width: 412, height: 915 },

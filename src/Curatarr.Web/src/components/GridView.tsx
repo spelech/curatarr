@@ -68,7 +68,8 @@ export const GridView: React.FC<GridViewProps> = ({
     count: rowCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 380, // Approximate row height with gap
-    overscan: 3,
+    overscan: 2,
+    useFlushSync: false,
   });
 
   // Re-measure when column layout changes
@@ -90,7 +91,7 @@ export const GridView: React.FC<GridViewProps> = ({
   return (
     <div
       ref={parentRef}
-      className="overflow-y-auto max-h-[calc(100vh-230px)] pr-1 scrollbar-thin rounded-xl"
+      className="overflow-y-auto max-h-[calc(100vh-230px)] pr-1 scrollbar-thin rounded-xl overscroll-y-contain [WebkitOverflowScrolling:touch]"
     >
       <div
         style={{
@@ -114,6 +115,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 left: 0,
                 width: '100%',
                 transform: `translateY(${virtualRow.start}px)`,
+                willChange: 'transform',
                 display: 'grid',
                 gridTemplateColumns: `repeat(${columnsCount}, minmax(0, 1fr))`,
                 gap: '0.875rem',

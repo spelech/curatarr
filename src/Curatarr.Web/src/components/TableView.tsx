@@ -169,7 +169,8 @@ export const TableView: React.FC<TableViewProps> = ({
     count: items.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
-    overscan: 10,
+    overscan: 5,
+    useFlushSync: false,
   });
 
   const virtualRows = rowVirtualizer.getVirtualItems();
@@ -218,7 +219,7 @@ export const TableView: React.FC<TableViewProps> = ({
   return (
     <div
       ref={parentRef}
-      className="border border-slate-800 rounded-xl overflow-auto bg-slate-900/40 max-h-[calc(100vh-230px)] scrollbar-thin"
+      className="border border-slate-800 rounded-xl overflow-auto bg-slate-900/40 max-h-[calc(100vh-230px)] scrollbar-thin overscroll-y-contain [WebkitOverflowScrolling:touch]"
     >
       <table className="w-full text-left border-collapse text-xs">
         <thead className="sticky top-0 z-20 bg-slate-950/95 border-b border-slate-800 backdrop-blur-sm shadow-sm">

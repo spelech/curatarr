@@ -68,6 +68,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
               onError={() => setImgError(true)}
               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-700 p-3">
