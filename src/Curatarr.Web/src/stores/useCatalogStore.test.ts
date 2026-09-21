@@ -227,4 +227,95 @@ describe('useCatalogStore', () => {
     expect(failRes.success).toBe(false);
     expect(failRes.message).toBe('Connection refused');
   });
+
+  it('triggerSync triggers sync and handles errors', async () => {
+    // 1. Success
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true } as Response);
+    await useCatalogStore.getState().triggerSync();
+    expect(useCatalogStore.getState().isSyncing).toBe(true);
+
+    // 2. Error
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Sync failed'));
+    await useCatalogStore.getState().triggerSync();
+    expect(useCatalogStore.getState().isSyncing).toBe(false);
+  });
+
+  it('executePrune handles success, season prune, rejection, and network failure', async () => {
+    const mockItem: MediaItem = {
+      id: 'prune-item-1',
+      title: 'Prunable Show',
+      sortTitle: 'prunable show',
+      mediaType: 1,
+      totalSizeBytes: 5000,
+      isProtected: false,
+      instances: [],
+      seasons: [],
+      watchStats: [],
+    };
+
+    useCatalogStore.setState({
+      items: [mockItem],
+      selectedIds: new Set(['prune-item-1']),
+    });
+
+    // 1. Successful whole show prune
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true, message: 'Deleted 1 show', bytesFreed: 5000 }),
+    } as Response);
+
+    const res1 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res1.success).toBe(true);
+    expect(res1.bytesFreed).toBe(5000);
+    expect(useCatalogStore.getState().items).toHaveLength(0);
+    expect(useCatalogStore.getState().selectedIds.has('prune-item-1')).toBe(false);
+
+    // 2. Successful season prune (does not remove show from items list)
+    useCatalogStore.setState({ items: [mockItem] });
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true, message: 'Deleted season 1', bytesFreed: 2500 }),
+    } as Response);
+
+    const res2 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      seasonNumber: 1,
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res2.success).toBe(true);
+    expect(useCatalogStore.getState().items).toHaveLength(1);
+
+    // 3. Rejection
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ success: false, message: 'Item protected' }),
+    } as Response);
+
+    const res3 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res3.success).toBe(false);
+
+    // 4. Exception
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network drop'));
+    const res4 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res4.success).toBe(false);
+    expect(res4.message).toBe('Network drop');
+  });
 });
+

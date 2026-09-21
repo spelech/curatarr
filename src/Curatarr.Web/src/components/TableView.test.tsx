@@ -164,4 +164,30 @@ describe('TableView component', () => {
 
     expect(screen.getByText('Loading more candidates...')).toBeDefined();
   });
+
+  it('renders top and bottom spacer rows when scrolled into middle of virtual list', async () => {
+    const { useVirtualizer } = await import('@tanstack/react-virtual');
+    vi.mocked(useVirtualizer).mockReturnValueOnce({
+      getVirtualItems: () => [
+        { index: 1, start: 128, end: 192, size: 64, key: 1 },
+      ],
+      getTotalSize: () => 500,
+      scrollToIndex: vi.fn(),
+      measure: vi.fn(),
+      measureElement: vi.fn(),
+    } as unknown as ReturnType<typeof useVirtualizer>);
+
+    render(
+      <TableView
+        items={mockItems}
+        selectedIds={new Set<string>()}
+        onToggleSelect={vi.fn()}
+        onToggleProtect={vi.fn()}
+        onPrune={vi.fn()}
+        onOpenDetail={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Breaking Bad (2008)')).toBeDefined();
+  });
 });

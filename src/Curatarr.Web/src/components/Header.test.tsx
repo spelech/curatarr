@@ -66,4 +66,30 @@ describe('Header component', () => {
 
     expect(refreshPlexSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('formats freed space in TB when over 1000 GB and cleans up status after timeout', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(useCatalogStore.getState(), 'refreshPlex').mockResolvedValue({
+      success: true,
+      message: 'Scanned 1 library',
+    });
+
+    useCatalogStore.setState({
+      prunedNotification: { count: 5, bytesFreed: 1500 * 1024 * 1024 * 1024 },
+    });
+
+    render(<Header onOpenSettings={vi.fn()} onOpenAudit={vi.fn()} />);
+
+    expect(screen.getByText(/1.5 TB freed/i)).toBeDefined();
+
+    const refreshBtn = screen.getByRole('button', { name: /Refresh Plex/i });
+    fireEvent.click(refreshBtn);
+
+    // Fast-forward 4 seconds asynchronously
+    await vi.advanceTimersByTimeAsync(4000);
+
+    expect(useCatalogStore.getState().prunedNotification).toBeNull();
+
+    vi.useRealTimers();
+  });
 });

@@ -4,6 +4,7 @@ using Curatarr.Infrastructure.Data;
 using Curatarr.Infrastructure.Repositories;
 using Dapper;
 using FluentAssertions;
+using NSubstitute;
 
 namespace Curatarr.Tests;
 
@@ -500,4 +501,175 @@ public class PersistenceTests : IDisposable
         totalSize.Should().BeGreaterOrEqualTo(35_000_000_000);
         totalCount.Should().BeGreaterOrEqualTo(2);
     }
+
+    [Fact]
+    public void DateTimeHandler_ShouldHandleAllTypesAndConversions()
+    {
+        var handler = new DateTimeHandler();
+        var param = NSubstitute.Substitute.For<System.Data.IDbDataParameter>();
+
+        // SetValue
+        var now = DateTime.UtcNow;
+        handler.SetValue(param, now);
+        param.Received().Value = now.ToString("o");
+
+        // Parse UTC DateTime
+        var parsedUtc = handler.Parse(now);
+        parsedUtc.Kind.Should().Be(DateTimeKind.Utc);
+        parsedUtc.Should().BeCloseTo(now, TimeSpan.FromSeconds(1));
+
+        // Parse Local DateTime
+        var localDt = DateTime.SpecifyKind(now, DateTimeKind.Local);
+        var parsedFromLocal = handler.Parse(localDt);
+        parsedFromLocal.Kind.Should().Be(DateTimeKind.Utc);
+
+        // Parse DateTimeOffset
+        var dto = new DateTimeOffset(now);
+        var parsedFromDto = handler.Parse(dto);
+        parsedFromDto.Should().BeCloseTo(now, TimeSpan.FromSeconds(1));
+
+        // Parse string
+        var isoStr = now.ToString("o");
+        var parsedFromStr = handler.Parse(isoStr);
+        parsedFromStr.Should().BeCloseTo(now, TimeSpan.FromSeconds(1));
+
+        // Parse fallback object (e.g. boxed string or Convert.ToDateTime compatible)
+        object boxed = now.ToString("yyyy-MM-dd HH:mm:ss");
+        var parsedFallback = handler.Parse(boxed);
+        parsedFallback.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Fact]
+    public void NullableDateTimeHandler_ShouldHandleNullsAndConversions()
+    {
+        var handler = new NullableDateTimeHandler();
+        var param = NSubstitute.Substitute.For<System.Data.IDbDataParameter>();
+
+        // SetValue with null
+        handler.SetValue(param, null);
+        param.Received().Value = DBNull.Value;
+
+        // SetValue with value
+        var now = DateTime.UtcNow;
+        handler.SetValue(param, now);
+        param.Received().Value = now.ToString("o");
+
+        // Parse null and DBNull
+        handler.Parse(null!).Should().BeNull();
+        handler.Parse(DBNull.Value).Should().BeNull();
+
+        // Parse UTC DateTime
+        var parsedUtc = handler.Parse(now);
+        parsedUtc.Should().NotBeNull();
+        parsedUtc!.Value.Kind.Should().Be(DateTimeKind.Utc);
+
+        // Parse Local DateTime
+        var localDt = DateTime.SpecifyKind(now, DateTimeKind.Local);
+        var parsedFromLocal = handler.Parse(localDt);
+        parsedFromLocal!.Value.Kind.Should().Be(DateTimeKind.Utc);
+
+        // Parse DateTimeOffset
+        var dto = new DateTimeOffset(now);
+        var parsedFromDto = handler.Parse(dto);
+        parsedFromDto.Should().NotBeNull();
+
+        // Parse string
+        var isoStr = now.ToString("o");
+        var parsedFromStr = handler.Parse(isoStr);
+        parsedFromStr.Should().NotBeNull();
+
+        // Parse fallback object
+        object boxed = now.ToString("yyyy-MM-dd HH:mm:ss");
+        var parsedFallback = handler.Parse(boxed);
+        parsedFallback.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SettingsRepository_CorruptJson_ShouldFallbackToDefaults()
+    {
+        await _initializer.InitializeAsync();
+        var settingsRepo = new SettingsRepository(_factory);
+
+        using (var conn = _factory.CreateConnection())
+        {
+            await conn.ExecuteAsync("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('curatarr_thresholds', '{this is not valid json', CURRENT_TIMESTAMP);");
+        }
+
+        var loaded = await settingsRepo.GetSettingsAsync();
+        loaded.Should().NotBeNull();
+        loaded.StaleDays.Should().Be(180);
+    }
+
+    [Fact]
+    public async Task MediaRepository_GetPagedAsync_ShouldCoverAllSortAndFilterBranches()
+    {
+        await _initializer.InitializeAsync();
+        IMediaRepository repo = new MediaRepository(_factory);
+
+        var itemA = new MediaItem
+        {
+            Id = "sort-a",
+            MediaType = MediaType.Movie,
+            Title = "Alpha",
+            SortTitle = "Alpha",
+            TotalSizeBytes = 1000,
+            AddedAt = new DateTime(2016, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            Year = 2015,
+            Instances = [new MediaInstance { Id = "inst-a", MediaItemId = "sort-a", ConnectionId = "conn-1", ExternalId = 101, CutoffUnmet = true, Resolution = "1080p", HasFile = true }]
+        };
+        var itemB = new MediaItem
+        {
+            Id = "sort-b",
+            MediaType = MediaType.Movie,
+            Title = "Beta",
+            SortTitle = "Beta",
+            TotalSizeBytes = 5000,
+            AddedAt = DateTime.UtcNow.AddDays(-2),
+            Year = 2022,
+            Instances = [new MediaInstance { Id = "inst-b", MediaItemId = "sort-b", ConnectionId = "conn-1", ExternalId = 102, CutoffUnmet = false, Resolution = "4K", HasFile = true }]
+        };
+
+        await repo.UpsertBatchAsync([itemA, itemB]);
+
+        // Sort by title asc & desc
+        var titleAsc = await repo.GetPagedAsync(new MediaFilterOptions(SortBy: "title", SortDescending: false));
+        titleAsc[0].Title.Should().Be("Alpha");
+        var titleDesc = await repo.GetPagedAsync(new MediaFilterOptions(SortBy: "title", SortDescending: true));
+        titleDesc[0].Title.Should().Be("Beta");
+
+        // Sort by added asc & desc
+        var addedAsc = await repo.GetPagedAsync(new MediaFilterOptions(SortBy: "added", SortDescending: false));
+        addedAsc[0].Id.Should().Be("sort-a");
+        var addedDesc = await repo.GetPagedAsync(new MediaFilterOptions(SortBy: "added", SortDescending: true));
+        addedDesc[0].Id.Should().Be("sort-b");
+
+        // Sort by size asc & desc
+        var sizeAsc = await repo.GetPagedAsync(new MediaFilterOptions(SortBy: "size", SortDescending: false));
+        sizeAsc[0].Id.Should().Be("sort-a");
+        var sizeDesc = await repo.GetPagedAsync(new MediaFilterOptions(SortBy: "size", SortDescending: true));
+        sizeDesc[0].Id.Should().Be("sort-b");
+
+        // Resolution filter
+        var res4k = await repo.GetPagedAsync(new MediaFilterOptions(ResolutionFilter: "4K"));
+        res4k.Should().ContainSingle(i => i.Id == "sort-b");
+
+        // Cutoff unmet filter
+        var cutoffUnmet = await repo.GetPagedAsync(new MediaFilterOptions(CutoffUnmetFilter: true));
+        cutoffUnmet.Should().ContainSingle(i => i.Id == "sort-a");
+
+        // Pre-2017 exclude vs only vs all
+        var pre2017Exclude = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "exclude"));
+        pre2017Exclude.Should().Contain(i => i.Id == "sort-b");
+
+        var pre2017Only = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "only"));
+        pre2017Only.Should().Contain(i => i.Id == "sort-a");
+
+        var pre2017All = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "all"));
+        pre2017All.Count.Should().BeGreaterOrEqualTo(2);
+
+        // Empty result branch
+        var emptyRes = await repo.GetPagedAsync(new MediaFilterOptions(SearchQuery: "NonExistentItemXYZ123"));
+        emptyRes.Should().BeEmpty();
+    }
 }
+

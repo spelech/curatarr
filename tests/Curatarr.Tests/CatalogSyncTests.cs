@@ -583,4 +583,89 @@ public class CatalogSyncTests : IDisposable
         movie.AddedAt.Should().Be(addedDate.AddDays(10));
         movie.PosterUrl.Should().Be("https://image.tmdb.org/t/p/w500/dune2.jpg");
     }
+
+    [Fact]
+    public async Task TriggerSyncAsync_WhenAlreadyRunning_ShouldReturnEarly()
+    {
+        await _initializer.InitializeAsync();
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+
+        var tcs = new TaskCompletionSource<IReadOnlyList<SonarrSeriesDto>>();
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(tcs.Task);
+
+        var conn = new ServiceConnection { Id = "s-1", ConnectionType = ConnectionType.Sonarr, BaseUrl = "http://sonarr:8989", ApiKey = "k", IsEnabled = true };
+        await _connRepo.UpsertAsync(conn);
+
+        // Start first sync
+        var task1 = syncService.TriggerSyncAsync();
+
+        // Second sync should return early because lock is held
+        await syncService.TriggerSyncAsync();
+
+        tcs.SetResult([]);
+        await task1;
+    }
+
+    [Fact]
+    public async Task SyncAsync_FallbackKeyMatching_And_ErrorHandling()
+    {
+        await _initializer.InitializeAsync();
+
+        var sonarrConn = new ServiceConnection { Id = "sonarr-err", ConnectionType = ConnectionType.Sonarr, BaseUrl = "http://sonarr:8989", ApiKey = "k", IsEnabled = true };
+        var radarrConn = new ServiceConnection { Id = "radarr-fallback", ConnectionType = ConnectionType.Radarr, BaseUrl = "http://radarr:7878", ApiKey = "k", IsEnabled = true };
+        await _connRepo.UpsertAsync(sonarrConn);
+        await _connRepo.UpsertAsync(radarrConn);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var tautulliClient = Substitute.For<ITautulliClient>();
+        var plexClient = Substitute.For<IPlexClient>();
+
+        // Sonarr throws exception to test error handling branch
+        sonarrClient.GetSeriesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<SonarrSeriesDto>>(_ => throw new HttpRequestException("Sonarr offline"));
+
+        // Radarr returns movie with only ImdbId (no TmdbId), and movie with neither (fallback to title:year)
+        var movies = new List<RadarrMovieDto>
+        {
+            new(1, "Imdb Movie", null, null, "tt999999", 2020, true, true, "/m/1", 5_000_000_000, 1),
+            new(2, "Title Year Movie", null, null, null, 2021, true, true, "/m/2", 6_000_000_000, 1)
+        };
+        radarrClient.GetMoviesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<RadarrMovieDto>>(movies));
+
+        var syncService = new CatalogSyncService(_connRepo, _mediaRepo, sonarrClient, radarrClient, tautulliClient, plexClient);
+        await syncService.TriggerSyncAsync();
+
+        var items = await _mediaRepo.GetPagedAsync(new MediaFilterOptions { Limit = 10 });
+        items.Should().HaveCount(2);
+        items.Should().Contain(i => i.Title == "Imdb Movie");
+        items.Should().Contain(i => i.Title == "Title Year Movie");
+    }
+
+    [Fact]
+    public async Task CatalogSyncWorker_ExecuteAsync_HandlesImmediateCancellation()
+    {
+        var syncService = Substitute.For<ICatalogSyncService>();
+        var settingsRepo = Substitute.For<ISettingsRepository>();
+        settingsRepo.GetSettingsAsync(Arg.Any<CancellationToken>())
+            .Returns(new CuratarrSettings { SyncIntervalHours = 1 });
+
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<CatalogSyncWorker>.Instance;
+        var worker = new CatalogSyncWorker(syncService, settingsRepo, logger);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await worker.StartAsync(cts.Token);
+        await worker.StopAsync(CancellationToken.None);
+    }
 }
+

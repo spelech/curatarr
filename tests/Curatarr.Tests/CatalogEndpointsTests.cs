@@ -1,11 +1,14 @@
 using System.Net;
 using System.Net.Http.Json;
+using Curatarr.Core.Adapters;
 using Curatarr.Core.Models;
 using Curatarr.Core.Repositories;
 using Curatarr.Infrastructure.Data;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 
 namespace Curatarr.Tests;
 
@@ -178,5 +181,88 @@ public class CatalogEndpointsTests : IClassFixture<WebApplicationFactory<Program
         stats.totalLibrarySizeBytes.Should().BeGreaterOrEqualTo(48000000000);
     }
 
+    [Fact]
+    public async Task GetUsers_And_CategoriesWithUser_ShouldReturnExpectedResults()
+    {
+        await SeedCatalogAsync();
+        var client = _factory.CreateClient();
+
+        // 1. GetUsers when no Tautulli connection is configured
+        var usersRes = await client.GetAsync("/api/v1/users");
+        usersRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var usersList = await usersRes.Content.ReadFromJsonAsync<List<object>>();
+        usersList.Should().NotBeNull();
+
+        // 2. GetCategories with userId
+        var catRes = await client.GetAsync("/api/v1/categories?userId=user1");
+        catRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // 3. Catalog with mediaType=series and sortBy=title ascending
+        var seriesRes = await client.GetFromJsonAsync<List<MediaItem>>("/api/v1/catalog?mediaType=series&sortBy=title&sortDesc=false");
+        seriesRes.Should().NotBeNull();
+        seriesRes!.Should().ContainSingle(i => i.Id == "cat-series-post2017");
+    }
+
+    [Fact]
+    public async Task GetUsers_WithTautulliConnection_HandlesSuccess_Error_And_Disabled()
+    {
+        var mockConnRepo = Substitute.For<IConnectionRepository>();
+        var mockTautulli = Substitute.For<ITautulliClient>();
+
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton(_ => mockConnRepo);
+                services.AddSingleton(_ => mockTautulli);
+            });
+        }).CreateClient();
+
+        // 1. Inactive Tautulli connection (IsEnabled = false)
+        mockConnRepo.GetAllAsync(Arg.Any<CancellationToken>())
+            .Returns([
+                new ServiceConnection
+                {
+                    Id = "t1",
+                    ConnectionType = ConnectionType.Tautulli,
+                    IsEnabled = false
+                }
+            ]);
+        var disabledRes = await client.GetAsync("/api/v1/users");
+        disabledRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var disabledList = await disabledRes.Content.ReadFromJsonAsync<List<object>>();
+        disabledList.Should().BeEmpty();
+
+        // 2. Active Tautulli connection with successful users fetch
+        var activeConn = new ServiceConnection
+        {
+            Id = "t2",
+            ConnectionType = ConnectionType.Tautulli,
+            IsEnabled = true,
+            BaseUrl = "http://tautulli:8181",
+            ApiKey = "key"
+        };
+        mockConnRepo.GetAllAsync(Arg.Any<CancellationToken>())
+            .Returns([activeConn]);
+        mockTautulli.GetUsersAsync(activeConn, Arg.Any<CancellationToken>())
+            .Returns([new TautulliUserDto("u1", "alice", "Alice")]);
+
+        var activeRes = await client.GetAsync("/api/v1/users");
+        activeRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var activeList = await activeRes.Content.ReadFromJsonAsync<List<TautulliUserDto>>();
+        activeList.Should().HaveCount(1);
+        activeList![0].Username.Should().Be("alice");
+
+        // 3. Active Tautulli connection with exception thrown
+        mockTautulli.GetUsersAsync(activeConn, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<TautulliUserDto>>(_ => throw new HttpRequestException("Tautulli down"));
+
+        var errorRes = await client.GetAsync("/api/v1/users");
+        errorRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var errorList = await errorRes.Content.ReadFromJsonAsync<List<object>>();
+        errorList.Should().BeEmpty();
+    }
+
     public record StatsResponse(long totalLibrarySizeBytes, int totalItemCount);
 }
+

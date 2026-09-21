@@ -46,4 +46,37 @@ describe('useSettingsStore', () => {
       method: 'PUT',
     }));
   });
+
+  it('handles fetchSettings failure and exceptions', async () => {
+    // Non-ok response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+    } as Response);
+
+    await useSettingsStore.getState().fetchSettings();
+    expect(useSettingsStore.getState().error).toBe('Failed to load settings.');
+
+    // Exception
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network offline'));
+    await useSettingsStore.getState().fetchSettings();
+    expect(useSettingsStore.getState().error).toBe('Network offline');
+  });
+
+  it('handles saveSettings failure and exceptions', async () => {
+    // Non-ok response
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'Validation failed' }),
+    } as unknown as Response);
+
+    const fail1 = await useSettingsStore.getState().saveSettings(DEFAULT_SETTINGS);
+    expect(fail1).toBe(false);
+    expect(useSettingsStore.getState().error).toBe('Validation failed');
+
+    // Exception
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Save timeout'));
+    const fail2 = await useSettingsStore.getState().saveSettings(DEFAULT_SETTINGS);
+    expect(fail2).toBe(false);
+    expect(useSettingsStore.getState().error).toBe('Save timeout');
+  });
 });

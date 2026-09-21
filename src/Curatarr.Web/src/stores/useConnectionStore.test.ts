@@ -124,4 +124,50 @@ describe('useConnectionStore', () => {
     expect(res.latencyMs).toBe(42);
     expect(useConnectionStore.getState().testResults['conn-test-1']).toEqual(mockResult);
   });
+
+  it('handles error states across fetch, discover, save, delete, and test', async () => {
+    // 1. fetchConnections error
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: false } as Response);
+    await useConnectionStore.getState().fetchConnections();
+    expect(useConnectionStore.getState().isLoading).toBe(false);
+
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Fetch failed'));
+    await useConnectionStore.getState().fetchConnections();
+    expect(useConnectionStore.getState().isLoading).toBe(false);
+
+    // 2. discoverServices error
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: false, status: 500 } as Response);
+    const discFail = await useConnectionStore.getState().discoverServices();
+    expect(discFail).toHaveLength(0);
+    expect(useConnectionStore.getState().scanError).toBe('Failed to scan: HTTP 500');
+
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Discovery timeout'));
+    await useConnectionStore.getState().discoverServices();
+    expect(useConnectionStore.getState().scanError).toBe('Discovery timeout');
+
+    // 3. saveConnection error
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: false } as Response);
+    const saveFail1 = await useConnectionStore.getState().saveConnection({});
+    expect(saveFail1).toBe(false);
+
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Save error'));
+    const saveFail2 = await useConnectionStore.getState().saveConnection({});
+    expect(saveFail2).toBe(false);
+
+    // 4. deleteConnection error
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: false } as Response);
+    const delFail1 = await useConnectionStore.getState().deleteConnection('bad-id');
+    expect(delFail1).toBe(false);
+
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Delete error'));
+    const delFail2 = await useConnectionStore.getState().deleteConnection('bad-id');
+    expect(delFail2).toBe(false);
+
+    // 5. testConnection error
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Connection refused'));
+    const testFail = await useConnectionStore.getState().testConnection({ id: 'bad-conn' });
+    expect(testFail.success).toBe(false);
+    expect(testFail.message).toBe('Connection refused');
+    expect(useConnectionStore.getState().testResults['bad-conn']?.success).toBe(false);
+  });
 });
