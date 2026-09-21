@@ -56,11 +56,47 @@ def check_version_sync(root_dir: Path) -> bool:
         if match:
             frontend_version = match.group(1).strip()
 
+    # 3. E2E package.json
+    e2e_pkg_file = root_dir / "tests" / "Curatarr.E2E" / "package.json"
+    e2e_version = None
+    if e2e_pkg_file.exists():
+        match = re.search(r'"version":\s*"([^"]+)"', e2e_pkg_file.read_text(encoding="utf-8"))
+        if match:
+            e2e_version = match.group(1).strip()
+
     print(f"   Backend version:  {backend_version or 'not specified in Directory.Build.props'}")
     print(f"   Frontend version: {frontend_version or 'not specified in package.json'}")
+    print(f"   E2E version:      {e2e_version or 'not specified in tests/Curatarr.E2E/package.json'}")
 
+    has_errors = False
     if backend_version and frontend_version and backend_version != frontend_version:
         print(f"❌ Version mismatch: Backend ({backend_version}) != Frontend ({frontend_version})")
+        has_errors = True
+
+    if backend_version and e2e_version and backend_version != e2e_version:
+        print(f"❌ Version mismatch: Backend ({backend_version}) != E2E ({e2e_version})")
+        has_errors = True
+
+    # 4. Enforce dynamic version in Header.tsx (no hardcoded v1.x / v0.x)
+    header_file = root_dir / "src" / "Curatarr.Web" / "src" / "components" / "Header.tsx"
+    if header_file.exists():
+        header_text = header_file.read_text(encoding="utf-8")
+        if "__APP_VERSION__" not in header_text:
+            print("❌ Header.tsx does not use dynamic '__APP_VERSION__'")
+            has_errors = True
+        if re.search(r'>\s*v\d+\.\d+', header_text):
+            print("❌ Header.tsx contains hardcoded version badge string (expected dynamic __APP_VERSION__)")
+            has_errors = True
+
+    # 5. Enforce dynamic assembly version in Program.cs
+    program_file = root_dir / "src" / "Curatarr.Api" / "Program.cs"
+    if program_file.exists():
+        program_text = program_file.read_text(encoding="utf-8")
+        if "appVersion" not in program_text:
+            print("❌ Program.cs does not resolve appVersion dynamically from assembly")
+            has_errors = True
+
+    if has_errors:
         return False
 
     print("✅ Version consistency check passed.")

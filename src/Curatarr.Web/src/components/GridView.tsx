@@ -47,12 +47,13 @@ export const GridView: React.FC<GridViewProps> = ({
     const updateColumns = () => {
       if (!parentRef.current) return;
       const width = parentRef.current.clientWidth;
-      if (width >= 1536) setColumnsCount(7);
-      else if (width >= 1280) setColumnsCount(6);
-      else if (width >= 1024) setColumnsCount(5);
-      else if (width >= 768) setColumnsCount(4);
-      else if (width >= 640) setColumnsCount(3);
-      else setColumnsCount(2);
+      let nextCols = 2;
+      if (width >= 1536) nextCols = 7;
+      else if (width >= 1280) nextCols = 6;
+      else if (width >= 1024) nextCols = 5;
+      else if (width >= 768) nextCols = 4;
+      else if (width >= 640) nextCols = 3;
+      setColumnsCount((prev) => (prev !== nextCols ? nextCols : prev));
     };
 
     updateColumns();
@@ -67,7 +68,8 @@ export const GridView: React.FC<GridViewProps> = ({
     count: rowCount,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 380, // Approximate row height with gap
-    overscan: 3,
+    overscan: 2,
+    useFlushSync: false,
   });
 
   // Re-measure when column layout changes
@@ -77,19 +79,19 @@ export const GridView: React.FC<GridViewProps> = ({
 
   // Infinite scroll trigger when reaching near the bottom virtual items
   const virtualRows = rowVirtualizer.getVirtualItems();
-  const lastVirtualRow = virtualRows[virtualRows.length - 1];
+  const lastVirtualRowIndex = virtualRows.length > 0 ? virtualRows[virtualRows.length - 1].index : -1;
 
   useEffect(() => {
-    if (!lastVirtualRow) return;
-    if (lastVirtualRow.index >= rowCount - 2 && hasMore && !isLoadingMore) {
+    if (lastVirtualRowIndex < 0) return;
+    if (lastVirtualRowIndex >= rowCount - 2 && hasMore && !isLoadingMore) {
       onLoadMore();
     }
-  }, [lastVirtualRow, rowCount, hasMore, isLoadingMore, onLoadMore]);
+  }, [lastVirtualRowIndex, rowCount, hasMore, isLoadingMore, onLoadMore]);
 
   return (
     <div
       ref={parentRef}
-      className="overflow-y-auto max-h-[calc(100vh-230px)] pr-1 scrollbar-thin rounded-xl"
+      className="overflow-y-auto max-h-[calc(100vh-230px)] pr-1 scrollbar-thin rounded-xl overscroll-y-contain [WebkitOverflowScrolling:touch]"
     >
       <div
         style={{
@@ -113,6 +115,7 @@ export const GridView: React.FC<GridViewProps> = ({
                 left: 0,
                 width: '100%',
                 transform: `translateY(${virtualRow.start}px)`,
+                willChange: 'transform',
                 display: 'grid',
                 gridTemplateColumns: `repeat(${columnsCount}, minmax(0, 1fr))`,
                 gap: '0.875rem',
@@ -124,10 +127,10 @@ export const GridView: React.FC<GridViewProps> = ({
                   key={item.id}
                   item={item}
                   isSelected={selectedIds.has(item.id)}
-                  onToggleSelect={() => onToggleSelect(item.id)}
-                  onToggleProtect={() => onToggleProtect(item.id, !item.isProtected)}
-                  onPrune={(seasonNum) => onPrune(item, seasonNum)}
-                  onOpenDetail={() => onOpenDetail(item)}
+                  onToggleSelect={onToggleSelect}
+                  onToggleProtect={onToggleProtect}
+                  onPrune={onPrune}
+                  onOpenDetail={onOpenDetail}
                 />
               ))}
             </div>

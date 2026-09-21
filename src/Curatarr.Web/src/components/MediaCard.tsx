@@ -7,13 +7,13 @@ import { getItemBadges, itemPredatesWatchHistory } from '../utils/badgeUtils';
 interface MediaCardProps {
   item: MediaItem;
   isSelected: boolean;
-  onToggleSelect: () => void;
-  onToggleProtect: () => void;
-  onPrune: (seasonNumber?: number) => void;
-  onOpenDetail: () => void;
+  onToggleSelect: (id: string) => void;
+  onToggleProtect: (id: string, isProtected: boolean) => void;
+  onPrune: (item: MediaItem, seasonNumber?: number) => void;
+  onOpenDetail: (item: MediaItem) => void;
 }
 
-export const MediaCard: React.FC<MediaCardProps> = ({
+const MediaCardComponent: React.FC<MediaCardProps> = ({
   item,
   isSelected,
   onToggleSelect,
@@ -58,7 +58,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       <div>
         {/* Poster Header */}
         <div
-          onClick={onOpenDetail}
+          onClick={() => onOpenDetail(item)}
           className="relative aspect-[2/3] w-full bg-slate-950 overflow-hidden cursor-pointer border-b border-slate-800/80"
         >
           {item.posterUrl && !imgError ? (
@@ -68,6 +68,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               onError={() => setImgError(true)}
               className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
               loading="lazy"
+              decoding="async"
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-700 p-3">
@@ -82,7 +83,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               <input
                 type="checkbox"
                 checked={isSelected}
-                onChange={onToggleSelect}
+                onChange={() => onToggleSelect(item.id)}
                 onClick={(e) => e.stopPropagation()}
                 className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950/90 text-sky-600 focus:ring-sky-500 cursor-pointer shadow"
               />
@@ -118,7 +119,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onToggleProtect();
+                  onToggleProtect(item.id, !item.isProtected);
                 }}
                 title={item.isProtected ? `Protected: ${item.protectionReason || 'Whitelist'}` : 'Protect from deletion'}
                 className={`p-1 rounded backdrop-blur-sm shadow transition ${
@@ -132,7 +133,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onPrune();
+                  onPrune(item);
                 }}
                 disabled={item.isProtected}
                 title={item.isProtected ? 'Item is protected' : 'Prune item'}
@@ -149,7 +150,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
         {/* Card Body Info */}
         <div className="p-2.5 space-y-1.5">
-          <div onClick={onOpenDetail} className="cursor-pointer group/title">
+          <div onClick={() => onOpenDetail(item)} className="cursor-pointer group/title">
             <div className="flex items-center gap-1 text-[11px] text-slate-400 mb-0.5">
               {isSeries ? <Tv className="w-3 h-3 text-sky-400" /> : <Film className="w-3 h-3 text-amber-400" />}
               <span>{isSeries ? 'Series' : 'Movie'}</span>
@@ -162,7 +163,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
 
           {/* Storage & Plays */}
           <div
-            onClick={onOpenDetail}
+            onClick={() => onOpenDetail(item)}
             className="bg-slate-950/60 border border-slate-800/60 hover:border-slate-700/80 rounded-md p-1.5 flex items-center justify-between text-[11px] cursor-pointer transition"
           >
             <div>
@@ -192,9 +193,14 @@ export const MediaCard: React.FC<MediaCardProps> = ({
             <span>{item.seasons.length} Seasons</span>
             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
-          {isExpanded && <SeasonDrawer seasons={item.seasons} onPruneSeason={onPrune} />}
+          {isExpanded && <SeasonDrawer seasons={item.seasons} onPruneSeason={(seasonNum) => onPrune(item, seasonNum)} />}
         </div>
       )}
     </div>
   );
 };
+
+export const MediaCard = React.memo<MediaCardProps>(
+  MediaCardComponent,
+  (prev, next) => prev.item === next.item && prev.isSelected === next.isSelected
+);

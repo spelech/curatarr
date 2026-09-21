@@ -107,4 +107,215 @@ describe('useCatalogStore', () => {
     expect(stateAfterBatch2.items.length).toBe(75);
     expect(stateAfterBatch2.hasMore).toBe(false); // batch2 returned 25 (< pageSize 50)
   });
+
+  it('setSelectedPre2017Filter updates state, resets selection, and passes pre2017Filter param to fetchItems', async () => {
+    let capturedUrl = '';
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => [],
+      } as Response;
+    });
+
+    useCatalogStore.setState({ selectedIds: new Set(['item-1']) });
+    await useCatalogStore.getState().setSelectedPre2017Filter('exclude');
+
+    const state = useCatalogStore.getState();
+    expect(state.selectedPre2017Filter).toBe('exclude');
+    expect(state.selectedIds.size).toBe(0);
+    expect(capturedUrl).toContain('pre2017Filter=exclude');
+
+    await useCatalogStore.getState().setSelectedPre2017Filter('only');
+    expect(useCatalogStore.getState().selectedPre2017Filter).toBe('only');
+    expect(capturedUrl).toContain('pre2017Filter=only');
+
+    await useCatalogStore.getState().setSelectedPre2017Filter('all');
+    expect(useCatalogStore.getState().selectedPre2017Filter).toBe('all');
+    expect(capturedUrl).not.toContain('pre2017Filter=');
+  });
+
+  it('executePrune updates items and notification count on success', async () => {
+    const mockItem: MediaItem = {
+      id: 'prune-1',
+      title: 'Movie to Prune',
+      sortTitle: 'Movie to Prune',
+      mediaType: 0,
+      totalSizeBytes: 5000,
+      isProtected: false,
+      instances: [],
+      seasons: [],
+      watchStats: [],
+    };
+
+    useCatalogStore.setState({
+      items: [mockItem],
+      selectedIds: new Set(['prune-1']),
+    });
+
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url === '/api/v1/prune') {
+        return {
+          ok: true,
+          json: async () => ({ success: true, message: 'Pruned', bytesFreed: 5000 }),
+        } as Response;
+      }
+      return { ok: true, json: async () => [] } as Response;
+    });
+
+    const result = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-1',
+      targetConnectionIds: ['conn-1'],
+      addImportExclusion: true,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.bytesFreed).toBe(5000);
+    expect(useCatalogStore.getState().items.find((i) => i.id === 'prune-1')).toBeUndefined();
+    expect(useCatalogStore.getState().selectedIds.has('prune-1')).toBe(false);
+    expect(useCatalogStore.getState().prunedNotification?.bytesFreed).toBe(5000);
+  });
+
+  it('toggleProtect sends update to API and mutates item protection state', async () => {
+    const mockItem: MediaItem = {
+      id: 'item-protect',
+      title: 'Item to Protect',
+      sortTitle: 'Item to Protect',
+      mediaType: 0,
+      totalSizeBytes: 5000,
+      isProtected: false,
+      instances: [],
+      seasons: [],
+      watchStats: [],
+    };
+
+    useCatalogStore.setState({ items: [mockItem] });
+
+    let requestBody: Record<string, unknown> | null = null;
+    global.fetch = vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
+      if (url === '/api/v1/protect') {
+        requestBody = JSON.parse(opts?.body as string);
+        return { ok: true } as Response;
+      }
+      return { ok: true, json: async () => [] } as Response;
+    });
+
+    await useCatalogStore.getState().toggleProtect('item-protect', true, 'Favorite Movie');
+
+    expect(requestBody).toEqual({
+      mediaItemId: 'item-protect',
+      isProtected: true,
+      reason: 'Favorite Movie',
+    });
+    const updated = useCatalogStore.getState().items.find((i) => i.id === 'item-protect');
+    expect(updated?.isProtected).toBe(true);
+    expect(updated?.protectionReason).toBe('Favorite Movie');
+  });
+
+  it('refreshPlex returns success message or handles network failures', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ message: 'Plex library scanned' }),
+    } as Response);
+
+    const successRes = await useCatalogStore.getState().refreshPlex();
+    expect(successRes.success).toBe(true);
+    expect(successRes.message).toBe('Plex library scanned');
+
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Connection refused'));
+    const failRes = await useCatalogStore.getState().refreshPlex();
+    expect(failRes.success).toBe(false);
+    expect(failRes.message).toBe('Connection refused');
+  });
+
+  it('triggerSync triggers sync and handles errors', async () => {
+    // 1. Success
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: true } as Response);
+    await useCatalogStore.getState().triggerSync();
+    expect(useCatalogStore.getState().isSyncing).toBe(true);
+
+    // 2. Error
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Sync failed'));
+    await useCatalogStore.getState().triggerSync();
+    expect(useCatalogStore.getState().isSyncing).toBe(false);
+  });
+
+  it('executePrune handles success, season prune, rejection, and network failure', async () => {
+    const mockItem: MediaItem = {
+      id: 'prune-item-1',
+      title: 'Prunable Show',
+      sortTitle: 'prunable show',
+      mediaType: 1,
+      totalSizeBytes: 5000,
+      isProtected: false,
+      instances: [],
+      seasons: [],
+      watchStats: [],
+    };
+
+    useCatalogStore.setState({
+      items: [mockItem],
+      selectedIds: new Set(['prune-item-1']),
+    });
+
+    // 1. Successful whole show prune
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true, message: 'Deleted 1 show', bytesFreed: 5000 }),
+    } as Response);
+
+    const res1 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res1.success).toBe(true);
+    expect(res1.bytesFreed).toBe(5000);
+    expect(useCatalogStore.getState().items).toHaveLength(0);
+    expect(useCatalogStore.getState().selectedIds.has('prune-item-1')).toBe(false);
+
+    // 2. Successful season prune (does not remove show from items list)
+    useCatalogStore.setState({ items: [mockItem] });
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true, message: 'Deleted season 1', bytesFreed: 2500 }),
+    } as Response);
+
+    const res2 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      seasonNumber: 1,
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res2.success).toBe(true);
+    expect(useCatalogStore.getState().items).toHaveLength(1);
+
+    // 3. Rejection
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ success: false, message: 'Item protected' }),
+    } as Response);
+
+    const res3 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res3.success).toBe(false);
+
+    // 4. Exception
+    global.fetch = vi.fn().mockRejectedValueOnce(new Error('Network drop'));
+    const res4 = await useCatalogStore.getState().executePrune({
+      mediaItemId: 'prune-item-1',
+      targetConnectionIds: ['sonarr-1'],
+      addImportExclusion: false,
+    });
+
+    expect(res4.success).toBe(false);
+    expect(res4.message).toBe('Network drop');
+  });
 });
+

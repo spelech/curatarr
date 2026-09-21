@@ -82,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <p className="text-xs text-slate-400">Configure service connections, storage limits, and curation rules</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white transition">
+          <button onClick={onClose} aria-label="Close settings" className="p-1 rounded-lg text-slate-400 hover:text-white transition">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -369,6 +369,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         </button>
                         <button
                           onClick={() => deleteConnection(c.id)}
+                          aria-label={`Delete ${c.name}`}
+                          title="Delete connection"
                           className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

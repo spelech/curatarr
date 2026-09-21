@@ -17,6 +17,7 @@ public record MediaFilterOptions(
     string? SearchQuery = null,
     string? ResolutionFilter = null,
     bool? CutoffUnmetFilter = null,
+    string? Pre2017Filter = null,
     string? SortBy = "size", // "size", "added", "played", "title"
     bool SortDescending = true,
     int Limit = 50,

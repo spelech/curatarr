@@ -296,4 +296,153 @@ public class RuleEngineAndPruneTests : IDisposable
         audits[0].BytesFreed.Should().Be(8_000_000_000);
         audits[0].AddedToImportExclusion.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task PruneExecutionService_ShouldReturnFalse_WhenItemNotFound()
+    {
+        await _initializer.InitializeAsync();
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var overseerrClient = Substitute.For<IOverseerrClient>();
+
+        IPruneExecutionService service = new PruneExecutionService(_mediaRepo, _connRepo, _auditRepo, sonarrClient, radarrClient, overseerrClient);
+
+        var result = await service.ExecutePruneAsync(new PruneCommand("non-existent", null, ["conn-1"], false, "WebUI"));
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("not found");
+    }
+
+    [Fact]
+    public async Task PruneExecutionService_ShouldExecuteSeriesFullPrune_AndHandleRemainingInstances()
+    {
+        await _initializer.InitializeAsync();
+
+        var conn1 = new ServiceConnection { Id = "sonarr-hd", ConnectionType = ConnectionType.Sonarr, Name = "Sonarr HD", BaseUrl = "http://sonarr:8989", ApiKey = "k" };
+        var conn2 = new ServiceConnection { Id = "sonarr-4k", ConnectionType = ConnectionType.Sonarr, Name = "Sonarr 4K", BaseUrl = "http://sonarr4k:8989", ApiKey = "k" };
+        await _connRepo.UpsertAsync(conn1);
+        await _connRepo.UpsertAsync(conn2);
+
+        var series = new MediaItem
+        {
+            Id = "series-multi",
+            MediaType = MediaType.Series,
+            Title = "Multi-Instance Show",
+            TotalSizeBytes = 50_000_000_000,
+            IsProtected = false,
+            Instances =
+            [
+                new MediaInstance { Id = "inst-hd", MediaItemId = "series-multi", ConnectionId = "sonarr-hd", ExternalId = 10, SizeBytes = 20_000_000_000, HasFile = true },
+                new MediaInstance { Id = "inst-4k", MediaItemId = "series-multi", ConnectionId = "sonarr-4k", ExternalId = 20, SizeBytes = 30_000_000_000, HasFile = true }
+            ]
+        };
+        await _mediaRepo.UpsertBatchAsync([series]);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var overseerrClient = Substitute.For<IOverseerrClient>();
+
+        IPruneExecutionService service = new PruneExecutionService(_mediaRepo, _connRepo, _auditRepo, sonarrClient, radarrClient, overseerrClient);
+
+        // Delete only HD instance
+        var cmd = new PruneCommand("series-multi", null, ["sonarr-hd"], true, "WebUI");
+        var res = await service.ExecutePruneAsync(cmd);
+
+        res.Success.Should().BeTrue();
+        res.BytesFreed.Should().Be(20_000_000_000);
+        await sonarrClient.Received(1).DeleteSeriesAsync(Arg.Is<ServiceConnection>(c => c.Id == "sonarr-hd"), 10, true, true, Arg.Any<CancellationToken>());
+
+        // Media item should still exist because 4K instance remains
+        var existing = await _mediaRepo.GetByIdAsync("series-multi");
+        existing.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task PruneExecutionService_ShouldExecuteSeasonPrune_AndHandleErrors()
+    {
+        await _initializer.InitializeAsync();
+
+        var conn = new ServiceConnection { Id = "sonarr-season", ConnectionType = ConnectionType.Sonarr, Name = "Sonarr", BaseUrl = "http://sonarr:8989", ApiKey = "k" };
+        await _connRepo.UpsertAsync(conn);
+
+        var series = new MediaItem
+        {
+            Id = "series-season",
+            MediaType = MediaType.Series,
+            Title = "Show With Seasons",
+            TotalSizeBytes = 30_000_000_000,
+            IsProtected = false,
+            Instances = [new MediaInstance { Id = "inst-s", MediaItemId = "series-season", ConnectionId = "sonarr-season", ExternalId = 30, SizeBytes = 30_000_000_000, HasFile = true }],
+            Seasons =
+            [
+                new Season { Id = "sea-1", MediaItemId = "series-season", SeasonNumber = 1, SizeBytes = 10_000_000_000, EpisodeCount = 10, EpisodeFileCount = 10, IsMonitored = true },
+                new Season { Id = "sea-2", MediaItemId = "series-season", SeasonNumber = 2, SizeBytes = 20_000_000_000, EpisodeCount = 10, EpisodeFileCount = 10, IsMonitored = true }
+            ]
+        };
+        await _mediaRepo.UpsertBatchAsync([series]);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var overseerrClient = Substitute.For<IOverseerrClient>();
+
+        sonarrClient.GetEpisodeFilesAsync(Arg.Any<ServiceConnection>(), 30, Arg.Any<CancellationToken>())
+            .Returns(new List<SonarrEpisodeFileDto>
+            {
+                new(101, 30, 1, "S01E01.mkv", 5_000_000_000),
+                new(102, 30, 1, "S01E02.mkv", 5_000_000_000)
+            });
+
+        IPruneExecutionService service = new PruneExecutionService(_mediaRepo, _connRepo, _auditRepo, sonarrClient, radarrClient, overseerrClient);
+
+        // 1. Success season 1 prune
+        var cmd = new PruneCommand("series-season", 1, ["sonarr-season"], false, "WebUI");
+        var res = await service.ExecutePruneAsync(cmd);
+
+        res.Success.Should().BeTrue();
+        res.BytesFreed.Should().Be(10_000_000_000);
+        await sonarrClient.Received(1).DeleteEpisodeFilesAsync(Arg.Any<ServiceConnection>(), Arg.Is<IReadOnlyList<int>>(ids => ids.Contains(101) && ids.Contains(102)), Arg.Any<CancellationToken>());
+        await sonarrClient.Received(1).UnmonitorSeasonAsync(Arg.Any<ServiceConnection>(), 30, 1, Arg.Any<CancellationToken>());
+
+        // 2. Failure when client throws
+        sonarrClient.GetEpisodeFilesAsync(Arg.Any<ServiceConnection>(), 30, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<SonarrEpisodeFileDto>>(_ => throw new HttpRequestException("Sonarr offline"));
+
+        var cmdFail = new PruneCommand("series-season", 2, ["sonarr-season"], false, "WebUI");
+        var resFail = await service.ExecutePruneAsync(cmdFail);
+        resFail.Success.Should().BeFalse();
+        resFail.Message.Should().Contain("Failed deleting season");
+    }
+
+    [Fact]
+    public async Task PruneExecutionService_ShouldHandleMoviePruneError()
+    {
+        await _initializer.InitializeAsync();
+
+        var conn = new ServiceConnection { Id = "radarr-err", ConnectionType = ConnectionType.Radarr, Name = "Radarr Error", BaseUrl = "http://radarr:7878", ApiKey = "k" };
+        await _connRepo.UpsertAsync(conn);
+
+        var movie = new MediaItem
+        {
+            Id = "movie-err",
+            MediaType = MediaType.Movie,
+            Title = "Movie Fail",
+            TotalSizeBytes = 5_000_000_000,
+            IsProtected = false,
+            Instances = [new MediaInstance { Id = "inst-err", MediaItemId = "movie-err", ConnectionId = "radarr-err", ExternalId = 55, SizeBytes = 5_000_000_000, HasFile = true }]
+        };
+        await _mediaRepo.UpsertBatchAsync([movie]);
+
+        var sonarrClient = Substitute.For<ISonarrClient>();
+        var radarrClient = Substitute.For<IRadarrClient>();
+        var overseerrClient = Substitute.For<IOverseerrClient>();
+
+        radarrClient.When(x => x.DeleteMovieAsync(Arg.Any<ServiceConnection>(), 55, Arg.Any<bool>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()))
+            .Do(_ => throw new HttpRequestException("Radarr 500 internal error"));
+
+        IPruneExecutionService service = new PruneExecutionService(_mediaRepo, _connRepo, _auditRepo, sonarrClient, radarrClient, overseerrClient);
+
+        var res = await service.ExecutePruneAsync(new PruneCommand("movie-err", null, ["radarr-err"], false, "WebUI"));
+        res.Success.Should().BeFalse();
+        res.Message.Should().Contain("Failed deleting from Radarr Error");
+    }
 }

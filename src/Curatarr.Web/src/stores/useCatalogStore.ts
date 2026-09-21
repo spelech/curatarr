@@ -10,6 +10,7 @@ interface CatalogState {
   selectedMediaType: 'all' | 'movie' | 'series';
   selectedResolution: string | null;
   selectedCutoffUnmet: boolean | null;
+  selectedPre2017Filter: 'all' | 'exclude' | 'only';
   searchQuery: string;
   sortBy: string;
   sortDesc: boolean;
@@ -28,6 +29,7 @@ interface CatalogState {
   setSelectedMediaType: (type: 'all' | 'movie' | 'series') => void;
   setSelectedResolution: (resolution: string | null) => void;
   setSelectedCutoffUnmet: (cutoff: boolean | null) => void;
+  setSelectedPre2017Filter: (filter: 'all' | 'exclude' | 'only') => void;
   setSearchQuery: (query: string) => void;
   setSortBy: (sort: string) => void;
   toggleSortDesc: () => void;
@@ -57,6 +59,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   selectedMediaType: 'all',
   selectedResolution: null,
   selectedCutoffUnmet: null,
+  selectedPre2017Filter: 'all',
   searchQuery: '',
   sortBy: 'size',
   sortDesc: true,
@@ -92,6 +95,11 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   setSelectedCutoffUnmet: (cutoff) => {
     set({ selectedCutoffUnmet: cutoff, selectedIds: new Set() });
+    get().fetchItems();
+  },
+
+  setSelectedPre2017Filter: (filter) => {
+    set({ selectedPre2017Filter: filter, selectedIds: new Set() });
     get().fetchItems();
   },
 
@@ -167,13 +175,14 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   fetchItems: async () => {
     set({ isLoading: true, hasMore: true });
     try {
-      const { selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, searchQuery, sortBy, sortDesc, pageSize } = get();
+      const { selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc, pageSize } = get();
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedUserId) params.set('userId', selectedUserId);
       if (selectedMediaType !== 'all') params.set('mediaType', selectedMediaType);
       if (selectedResolution) params.set('resolution', selectedResolution);
       if (selectedCutoffUnmet !== null) params.set('cutoffUnmet', selectedCutoffUnmet.toString());
+      if (selectedPre2017Filter && selectedPre2017Filter !== 'all') params.set('pre2017Filter', selectedPre2017Filter);
       if (searchQuery) params.set('search', searchQuery);
       params.set('sortBy', sortBy);
       params.set('sortDesc', sortDesc.toString());
@@ -197,7 +206,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { hasMore, isLoading, isLoadingMore, items, pageSize, selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, searchQuery, sortBy, sortDesc } = get();
+    const { hasMore, isLoading, isLoadingMore, items, pageSize, selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc } = get();
     if (!hasMore || isLoading || isLoadingMore) return;
 
     set({ isLoadingMore: true });
@@ -208,6 +217,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       if (selectedMediaType !== 'all') params.set('mediaType', selectedMediaType);
       if (selectedResolution) params.set('resolution', selectedResolution);
       if (selectedCutoffUnmet !== null) params.set('cutoffUnmet', selectedCutoffUnmet.toString());
+      if (selectedPre2017Filter && selectedPre2017Filter !== 'all') params.set('pre2017Filter', selectedPre2017Filter);
       if (searchQuery) params.set('search', searchQuery);
       params.set('sortBy', sortBy);
       params.set('sortDesc', sortDesc.toString());

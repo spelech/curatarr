@@ -125,4 +125,22 @@ describe('ToastContainer and ToastItem', () => {
     expect(screen.queryByText('Prune Failed')).toBeNull();
     expect(useToastStore.getState().toasts).toHaveLength(0);
   });
+
+  it('renders standard info icon and action button with sky styling', () => {
+    useToastStore.getState().addToast({
+      type: 'info',
+      title: 'Catalog Synchronized',
+      message: 'All items updated',
+      action: {
+        label: 'View Catalog',
+        onClick: vi.fn(),
+      },
+    });
+
+    render(<ToastContainer />);
+
+    expect(screen.getByTestId('toast-icon-info')).toBeDefined();
+    const actionBtn = screen.getByRole('button', { name: 'View Catalog' });
+    expect(actionBtn.className).toContain('bg-sky-600');
+  });
 });

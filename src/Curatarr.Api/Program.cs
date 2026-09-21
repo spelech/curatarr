@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using System.Text.Json;
 using Curatarr.Api.Endpoints;
 using Curatarr.Api.Mcp;
@@ -71,12 +72,16 @@ app.UseStaticFiles();
 // Active SSE Connections tracking for MCP
 var sseClients = new ConcurrentDictionary<string, HttpResponse>();
 
+var appVersion = typeof(Program).Assembly.GetName().Version?.ToString(3)
+    ?? typeof(Program).Assembly.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0]
+    ?? "1.2.0";
+
 // 1. Health Endpoint
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "healthy",
     service = "curatarr",
-    version = "1.1.0",
+    version = appVersion,
     timestamp = DateTime.UtcNow
 }));
 
@@ -98,7 +103,7 @@ async Task<JsonRpcResponse> HandleJsonRpcAsync(JsonRpcRequest req, CuratarrMcpRe
                 serverInfo = new
                 {
                     name = "curatarr",
-                    version = "1.1.0"
+                    version = appVersion
                 }
             };
             break;
