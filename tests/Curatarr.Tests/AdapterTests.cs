@@ -236,4 +236,271 @@ public class AdapterTests
         show.ViewCount.Should().Be(4); // from viewedLeafCount
         show.LastViewedAt.Should().NotBeNull();
     }
+
+    [Fact]
+    public async Task RadarrClient_GetCutoffUnmetMovieIds_ShouldParseIds()
+    {
+        var json = @"{
+            ""records"": [
+                { ""id"": 101 },
+                { ""id"": 102 }
+            ]
+        }";
+
+        var handler = new MockHandler(req =>
+        {
+            req.RequestUri!.PathAndQuery.Should().Contain("/api/v3/wanted/cutoff");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
+        });
+
+        var client = new RadarrClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://radarr:7878", ApiKey = "radarrapikey" };
+
+        var ids = await client.GetCutoffUnmetMovieIdsAsync(conn);
+        ids.Should().BeEquivalentTo([101, 102]);
+    }
+
+    [Fact]
+    public async Task RadarrClient_GetMovies_ShouldParseMovies()
+    {
+        var json = @"[
+            {
+                ""id"": 5,
+                ""title"": ""Dune Part Two"",
+                ""sortTitle"": ""dune part two"",
+                ""tmdbId"": 693134,
+                ""imdbId"": ""tt15239678"",
+                ""year"": 2024,
+                ""monitored"": true,
+                ""hasFile"": true,
+                ""sizeOnDisk"": 32000000000,
+                ""movieFile"": { ""mediaInfo"": { ""resolution"": ""3840x2160"" } }
+            }
+        ]";
+
+        var handler = new MockHandler(req =>
+        {
+            req.RequestUri!.PathAndQuery.Should().Contain("/api/v3/movie");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
+        });
+
+        var client = new RadarrClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://radarr:7878", ApiKey = "key" };
+
+        var movies = await client.GetMoviesAsync(conn);
+        movies.Should().HaveCount(1);
+        movies[0].Title.Should().Be("Dune Part Two");
+        movies[0].SizeOnDisk.Should().Be(32000000000);
+        movies[0].HasFile.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SonarrClient_DeleteSeries_And_EpisodeFiles_ShouldSendCorrectDeleteCalls()
+    {
+        bool seriesDeleted = false;
+        bool filesDeleted = false;
+
+        var handler = new MockHandler(req =>
+        {
+            if (req.Method == HttpMethod.Delete && req.RequestUri!.PathAndQuery.Contains("/api/v3/series/10"))
+            {
+                seriesDeleted = true;
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+            if (req.Method == HttpMethod.Delete && req.RequestUri!.PathAndQuery.Contains("/api/v3/episodefile/"))
+            {
+                filesDeleted = true;
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var client = new SonarrClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://sonarr:8989", ApiKey = "sonarrapi" };
+
+        await client.DeleteSeriesAsync(conn, 10, deleteFiles: true, addImportExclusion: true);
+        seriesDeleted.Should().BeTrue();
+
+        await client.DeleteEpisodeFilesAsync(conn, [1001, 1002]);
+        filesDeleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SonarrClient_GetCutoffUnmetSeriesIds_ShouldParseIds()
+    {
+        var json = @"{
+            ""records"": [
+                { ""seriesId"": 201 },
+                { ""seriesId"": 202 }
+            ]
+        }";
+
+        var handler = new MockHandler(req =>
+        {
+            req.RequestUri!.PathAndQuery.Should().Contain("/api/v3/wanted/cutoff");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json) };
+        });
+
+        var client = new SonarrClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://sonarr:8989", ApiKey = "sonarrapi" };
+
+        var ids = await client.GetCutoffUnmetSeriesIdsAsync(conn);
+        ids.Should().BeEquivalentTo([201, 202]);
+    }
+
+    [Fact]
+    public async Task PlexClient_GetSections_And_Refresh_ShouldExecuteCorrectly()
+    {
+        var sectionsJson = @"{
+            ""MediaContainer"": {
+                ""Directory"": [
+                    { ""key"": ""1"", ""type"": ""movie"", ""title"": ""Movies"" },
+                    { ""key"": ""2"", ""type"": ""show"", ""title"": ""TV Shows"" }
+                ]
+            }
+        }";
+
+        bool refreshed = false;
+
+        var handler = new MockHandler(req =>
+        {
+            if (req.RequestUri!.PathAndQuery.Contains("/library/sections/1/refresh"))
+            {
+                refreshed = true;
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+            if (req.RequestUri!.PathAndQuery.Contains("/library/sections"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(sectionsJson) };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var client = new PlexClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://plex:32400", ApiKey = "token" };
+
+        var sections = await client.GetSectionsAsync(conn);
+        sections.Should().HaveCount(2);
+        sections[0].Title.Should().Be("Movies");
+
+        await client.RefreshSectionAsync(conn, "1");
+        refreshed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task OverseerrClient_GetRequests_And_Delete_ShouldExecuteCorrectly()
+    {
+        var requestsJson = @"{
+            ""results"": [
+                {
+                    ""id"": 42,
+                    ""status"": 2,
+                    ""type"": ""movie"",
+                    ""media"": { ""tmdbId"": 550, ""tvdbId"": null, ""status"": 5 }
+                }
+            ]
+        }";
+
+        bool requestDeleted = false;
+
+        var handler = new MockHandler(req =>
+        {
+            if (req.Method == HttpMethod.Delete && req.RequestUri!.PathAndQuery.Contains("/api/v1/request/42"))
+            {
+                requestDeleted = true;
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+            if (req.RequestUri!.PathAndQuery.Contains("/api/v1/request"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(requestsJson) };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var client = new OverseerrClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://overseerr:5055", ApiKey = "overseerrapi" };
+
+        var reqs = await client.GetRequestsAsync(conn);
+        reqs.Should().HaveCount(1);
+        reqs[0].Id.Should().Be(42);
+
+        await client.DeleteRequestAsync(conn, 42);
+        requestDeleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ConnectionTester_ShouldHandleSuccessAndFailures()
+    {
+        var handler = new MockHandler(req =>
+        {
+            if (req.RequestUri!.Host == "healthy")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(@"{""version"": ""3.0.0""}") };
+            }
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        });
+
+        var tester = new ConnectionTester(new HttpClient(handler));
+
+        var okConn = new ServiceConnection
+        {
+            ConnectionType = ConnectionType.Radarr,
+            BaseUrl = "http://healthy:7878",
+            ApiKey = "valid"
+        };
+        var failConn = new ServiceConnection
+        {
+            ConnectionType = ConnectionType.Radarr,
+            BaseUrl = "http://unhealthy:7878",
+            ApiKey = "invalid"
+        };
+
+        var okResult = await tester.TestAsync(okConn);
+        okResult.Success.Should().BeTrue();
+
+        var failResult = await tester.TestAsync(failConn);
+        failResult.Success.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SonarrClient_GetEpisodeFiles_And_UnmonitorSeason_ShouldWork()
+    {
+        var episodeFilesJson = @"[
+            { ""id"": 99, ""seriesId"": 1, ""seasonNumber"": 1, ""size"": 500000000, ""mediaInfo"": { ""videoCodec"": ""h264"" } }
+        ]";
+
+        var seriesJson = @"{
+            ""id"": 1,
+            ""title"": ""Show"",
+            ""seasons"": [
+                { ""seasonNumber"": 1, ""monitored"": true }
+            ]
+        }";
+
+        var handler = new MockHandler(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.PathAndQuery.Contains("/api/v3/episodefile?seriesId=1"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(episodeFilesJson) };
+            }
+            if (req.Method == HttpMethod.Get && req.RequestUri!.PathAndQuery.Contains("/api/v3/series/1"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(seriesJson) };
+            }
+            if (req.Method == HttpMethod.Put && req.RequestUri!.PathAndQuery.Contains("/api/v3/series"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(seriesJson) };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var client = new SonarrClient(new HttpClient(handler));
+        var conn = new ServiceConnection { BaseUrl = "http://sonarr:8989", ApiKey = "api" };
+
+        var files = await client.GetEpisodeFilesAsync(conn, 1);
+        files.Should().HaveCount(1);
+        files[0].Id.Should().Be(99);
+
+        await client.UnmonitorSeasonAsync(conn, 1, 1);
+    }
 }

@@ -421,4 +421,83 @@ public class PersistenceTests : IDisposable
             }
         }
     }
+
+    [Fact]
+    public async Task MediaRepository_DeleteSeasonAsync_ShouldRemoveSeason()
+    {
+        await _initializer.InitializeAsync();
+        IMediaRepository repo = new MediaRepository(_factory);
+
+        var series = new MediaItem
+        {
+            Id = "series-season-del-test",
+            MediaType = MediaType.Series,
+            Title = "Severance Season Del",
+            Seasons = [
+                new Season { Id = "s1", MediaItemId = "series-season-del-test", SeasonNumber = 1, EpisodeFileCount = 9, SizeBytes = 20000 },
+                new Season { Id = "s2", MediaItemId = "series-season-del-test", SeasonNumber = 2, EpisodeFileCount = 10, SizeBytes = 25000 }
+            ]
+        };
+
+        await repo.UpsertBatchAsync([series]);
+        var before = await repo.GetByIdAsync("series-season-del-test");
+        before!.Seasons.Should().HaveCount(2);
+
+        await repo.DeleteSeasonAsync("series-season-del-test", 1);
+
+        var after = await repo.GetByIdAsync("series-season-del-test");
+        after!.Seasons.Should().HaveCount(1);
+        after.Seasons[0].SeasonNumber.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task MediaRepository_FindByExternalIdAsync_ShouldMatchCorrectly()
+    {
+        await _initializer.InitializeAsync();
+        IMediaRepository repo = new MediaRepository(_factory);
+
+        var item = new MediaItem
+        {
+            Id = "ext-id-test",
+            MediaType = MediaType.Movie,
+            Title = "Dune",
+            TmdbId = "438631",
+            TvdbId = "99999",
+            ImdbId = "tt1160419"
+        };
+        await repo.UpsertBatchAsync([item]);
+
+        var matchTmdb = await repo.FindByExternalIdAsync("438631", null, null);
+        matchTmdb.Should().NotBeNull();
+        matchTmdb!.Id.Should().Be("ext-id-test");
+
+        var matchTvdb = await repo.FindByExternalIdAsync(null, "99999", null);
+        matchTvdb.Should().NotBeNull();
+        matchTvdb!.Id.Should().Be("ext-id-test");
+
+        var matchImdb = await repo.FindByExternalIdAsync(null, null, "tt1160419");
+        matchImdb.Should().NotBeNull();
+        matchImdb!.Id.Should().Be("ext-id-test");
+
+        var noMatch = await repo.FindByExternalIdAsync("0000", "0000", "0000");
+        noMatch.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task MediaRepository_GetTotalLibrarySizeBytesAndCount_ShouldCalculateCorrectly()
+    {
+        await _initializer.InitializeAsync();
+        IMediaRepository repo = new MediaRepository(_factory);
+
+        var item1 = new MediaItem { Id = "size-count-1", MediaType = MediaType.Movie, Title = "Movie 1", TotalSizeBytes = 10_000_000_000 };
+        var item2 = new MediaItem { Id = "size-count-2", MediaType = MediaType.Series, Title = "Series 1", TotalSizeBytes = 25_000_000_000 };
+
+        await repo.UpsertBatchAsync([item1, item2]);
+
+        var totalSize = await repo.GetTotalLibrarySizeBytesAsync();
+        var totalCount = await repo.GetTotalCountAsync();
+
+        totalSize.Should().BeGreaterOrEqualTo(35_000_000_000);
+        totalCount.Should().BeGreaterOrEqualTo(2);
+    }
 }
