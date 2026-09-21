@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Film, Tv, LayoutGrid, List, ArrowUpDown, User } from 'lucide-react';
+import { Search, Film, Tv, LayoutGrid, List, ArrowUpDown, User, History } from 'lucide-react';
 import { useCatalogStore } from '../stores/useCatalogStore';
 
 export const ControlBar: React.FC = () => {
@@ -13,6 +13,8 @@ export const ControlBar: React.FC = () => {
     setSelectedResolution,
     selectedCutoffUnmet,
     setSelectedCutoffUnmet,
+    selectedPre2017Filter,
+    setSelectedPre2017Filter,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -69,6 +71,7 @@ export const ControlBar: React.FC = () => {
           <select
             value={selectedResolution || ''}
             onChange={(e) => setSelectedResolution(e.target.value || null)}
+            aria-label="Filter resolution"
             className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer py-1.5 min-h-[28px]"
           >
             <option value="" className="bg-slate-900 text-slate-200">All Resolutions</option>
@@ -76,6 +79,21 @@ export const ControlBar: React.FC = () => {
             <option value="720p" className="bg-slate-900 text-slate-200">720p</option>
             <option value="1080p" className="bg-slate-900 text-slate-200">1080p</option>
             <option value="4K" className="bg-slate-900 text-slate-200">4K (2160p)</option>
+          </select>
+        </div>
+
+        {/* Pre-2017 Watch History Dropdown */}
+        <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-md px-2.5 py-0.5 text-slate-300">
+          <History className="w-3.5 h-3.5 text-slate-400" />
+          <select
+            value={selectedPre2017Filter}
+            onChange={(e) => setSelectedPre2017Filter(e.target.value as 'all' | 'exclude' | 'only')}
+            aria-label="Filter watch history era"
+            className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer py-1.5 min-h-[28px]"
+          >
+            <option value="all" className="bg-slate-900 text-slate-200">All History</option>
+            <option value="exclude" className="bg-slate-900 text-slate-200">Hide Pre-2017</option>
+            <option value="only" className="bg-slate-900 text-slate-200">Only Pre-2017</option>
           </select>
         </div>
 

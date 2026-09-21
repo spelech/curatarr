@@ -178,6 +178,21 @@ public class MediaRepository : IMediaRepository
             whereClauses.Add("EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.cutoff_unmet = 1)");
         }
 
+        if (!string.IsNullOrWhiteSpace(options.Pre2017Filter) && !options.Pre2017Filter.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            const string pre2017Condition = "(COALESCE((SELECT SUM(ws.play_count) FROM watch_stats ws WHERE ws.media_item_id = m.id), 0) = 0 AND ((m.added_at IS NOT NULL AND m.added_at < @TrackingStartDate) OR (m.added_at IS NULL AND m.year IS NOT NULL AND m.year <= 2017)))";
+            parameters.Add("TrackingStartDate", "2017-07-15T00:00:00Z");
+
+            if (options.Pre2017Filter.Equals("exclude", StringComparison.OrdinalIgnoreCase))
+            {
+                whereClauses.Add($"NOT {pre2017Condition}");
+            }
+            else if (options.Pre2017Filter.Equals("only", StringComparison.OrdinalIgnoreCase))
+            {
+                whereClauses.Add(pre2017Condition);
+            }
+        }
+
         var whereSql = whereClauses.Count > 0 ? "WHERE " + string.Join(" AND ", whereClauses) : "";
         var orderSql = options.SortBy switch
         {

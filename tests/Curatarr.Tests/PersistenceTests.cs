@@ -242,6 +242,73 @@ public class PersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task MediaRepository_ShouldFilterByPre2017WatchHistory()
+    {
+        await _initializer.InitializeAsync();
+        IMediaRepository repo = new MediaRepository(_factory);
+
+        var pre2017Unwatched = new MediaItem
+        {
+            Id = "pre2017-unwatched",
+            MediaType = MediaType.Movie,
+            Title = "Old Movie Pre-2017",
+            AddedAt = DateTime.Parse("2015-06-01T00:00:00Z"),
+            Year = 2014,
+            TotalSizeBytes = 1000,
+            WatchStats = []
+        };
+
+        var post2017Unwatched = new MediaItem
+        {
+            Id = "post2017-unwatched",
+            MediaType = MediaType.Movie,
+            Title = "Recent Movie Post-2017",
+            AddedAt = DateTime.Parse("2021-06-01T00:00:00Z"),
+            Year = 2020,
+            TotalSizeBytes = 1000,
+            WatchStats = []
+        };
+
+        var pre2017Watched = new MediaItem
+        {
+            Id = "pre2017-watched",
+            MediaType = MediaType.Movie,
+            Title = "Old Movie But Watched",
+            AddedAt = DateTime.Parse("2015-06-01T00:00:00Z"),
+            Year = 2014,
+            TotalSizeBytes = 1000,
+            WatchStats = [
+                new WatchStat { Id = "ws1", MediaItemId = "pre2017-watched", UserId = "u1", PlayCount = 3 }
+            ]
+        };
+
+        var nullAddedOldYear = new MediaItem
+        {
+            Id = "null-added-old-year",
+            MediaType = MediaType.Movie,
+            Title = "Unknown Added Date Old Year",
+            AddedAt = null,
+            Year = 2012,
+            TotalSizeBytes = 1000,
+            WatchStats = []
+        };
+
+        await repo.UpsertBatchAsync([pre2017Unwatched, post2017Unwatched, pre2017Watched, nullAddedOldYear]);
+
+        // Filter: only pre-2017
+        var onlyResults = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "only"));
+        onlyResults.Select(x => x.Id).Should().BeEquivalentTo(["pre2017-unwatched", "null-added-old-year"]);
+
+        // Filter: exclude pre-2017
+        var excludeResults = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "exclude"));
+        excludeResults.Select(x => x.Id).Should().BeEquivalentTo(["post2017-unwatched", "pre2017-watched"]);
+
+        // Filter: all (default)
+        var allResults = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "all"));
+        allResults.Select(x => x.Id).Should().Contain(["pre2017-unwatched", "post2017-unwatched", "pre2017-watched", "null-added-old-year"]);
+    }
+
+    [Fact]
     public async Task AuditRepository_ShouldRecordAndCalculateTotalFreed()
     {
         await _initializer.InitializeAsync();

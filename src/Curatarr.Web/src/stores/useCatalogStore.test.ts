@@ -107,4 +107,31 @@ describe('useCatalogStore', () => {
     expect(stateAfterBatch2.items.length).toBe(75);
     expect(stateAfterBatch2.hasMore).toBe(false); // batch2 returned 25 (< pageSize 50)
   });
+
+  it('setSelectedPre2017Filter updates state, resets selection, and passes pre2017Filter param to fetchItems', async () => {
+    let capturedUrl = '';
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => [],
+      } as Response;
+    });
+
+    useCatalogStore.setState({ selectedIds: new Set(['item-1']) });
+    await useCatalogStore.getState().setSelectedPre2017Filter('exclude');
+
+    const state = useCatalogStore.getState();
+    expect(state.selectedPre2017Filter).toBe('exclude');
+    expect(state.selectedIds.size).toBe(0);
+    expect(capturedUrl).toContain('pre2017Filter=exclude');
+
+    await useCatalogStore.getState().setSelectedPre2017Filter('only');
+    expect(useCatalogStore.getState().selectedPre2017Filter).toBe('only');
+    expect(capturedUrl).toContain('pre2017Filter=only');
+
+    await useCatalogStore.getState().setSelectedPre2017Filter('all');
+    expect(useCatalogStore.getState().selectedPre2017Filter).toBe('all');
+    expect(capturedUrl).not.toContain('pre2017Filter=');
+  });
 });
