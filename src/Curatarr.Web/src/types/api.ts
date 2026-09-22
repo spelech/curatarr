@@ -39,6 +39,34 @@ export interface WatchStat {
   lastPlayedAt?: string;
 }
 
+export interface ProtectionRequest {
+  id: string;
+  mediaItemId: string;
+  userId: string;
+  username: string;
+  userThumb?: string;
+  reason?: string;
+  createdAt: string;
+}
+
+export interface CuratarrUser {
+  id: string;
+  plexId: string;
+  username: string;
+  email?: string;
+  thumbUrl?: string;
+  role: 'Admin' | 'Guest';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AuthMeResponse {
+  authenticated: boolean;
+  initialized: boolean;
+  authEnabled: boolean;
+  user: CuratarrUser | null;
+}
+
 export interface MediaItem {
   id: string;
   mediaType: number; // 0: Movie, 1: Series
@@ -51,12 +79,16 @@ export interface MediaItem {
   plexRatingKey?: number;
   posterUrl?: string;
   addedAt?: string;
+  requestedBy?: string;
+  requestedAt?: string;
   totalSizeBytes: number;
   isProtected: boolean;
   protectionReason?: string;
+  protectionRequestCount?: number;
   instances: MediaInstance[];
   seasons: Season[];
   watchStats: WatchStat[];
+  protectionRequests?: ProtectionRequest[];
 }
 
 export interface ServiceConnection {
@@ -117,4 +149,6 @@ export interface CuratarrSettings {
   movieSpaceHogGb: number;
   movie4kSpaceHogGb: number;
   seriesEpisodeSpaceHogGb: number;
+  authEnabled?: boolean;
+  adminUsernames?: string;
 }

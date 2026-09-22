@@ -19,15 +19,19 @@ public class MediaItem
     public int? PlexRatingKey { get; set; }
     public string? PosterUrl { get; set; }
     public DateTime? AddedAt { get; set; }
+    public string? RequestedBy { get; set; }
+    public DateTime? RequestedAt { get; set; }
     public long TotalSizeBytes { get; set; }
     public bool IsProtected { get; set; }
     public string? ProtectionReason { get; set; }
+    public int ProtectionRequestCount { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public List<MediaInstance> Instances { get; set; } = [];
     public List<Season> Seasons { get; set; } = [];
     public List<WatchStat> WatchStats { get; set; } = [];
+    public List<ProtectionRequest> ProtectionRequests { get; set; } = [];
 }
 
 public class MediaInstance

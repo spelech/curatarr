@@ -13,7 +13,7 @@ public static class SettingsEndpoints
         {
             var settings = await repo.GetSettingsAsync(ct);
             return Results.Ok(settings);
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         group.MapPut("/", async (ISettingsRepository repo, CuratarrSettings incoming, CancellationToken ct) =>
         {
@@ -32,6 +32,6 @@ public static class SettingsEndpoints
 
             await repo.SaveSettingsAsync(incoming, ct);
             return Results.Ok(incoming);
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
     }
 }

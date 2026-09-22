@@ -18,6 +18,12 @@ public record CuratarrSettings
     public int SyncIntervalHours { get; init; } = 1;
     public int CatalogBatchSize { get; init; } = 50;
 
+    // Authentication & Access Control settings
+    public bool AuthEnabled { get; init; } = true;
+    public string AdminUsernames { get; init; } = string.Empty;
+    public string PlexClientId { get; init; } = string.Empty;
+    public string SessionSecret { get; init; } = string.Empty;
+
     // Helper conversion properties for API serialization
     public double MovieSpaceHogGb
     {

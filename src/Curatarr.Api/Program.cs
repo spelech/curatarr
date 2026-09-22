@@ -27,6 +27,7 @@ builder.Services.AddSingleton<ISettingsRepository, SettingsRepository>();
 builder.Services.AddSingleton<IConnectionRepository, ConnectionRepository>();
 builder.Services.AddSingleton<IMediaRepository, MediaRepository>();
 builder.Services.AddSingleton<IAuditRepository, AuditRepository>();
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
 
 // HTTP Clients & Adapters
 builder.Services.AddHttpClient<ISonarrClient, SonarrClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
@@ -35,6 +36,7 @@ builder.Services.AddHttpClient<ITautulliClient, TautulliClient>(client => client
 builder.Services.AddHttpClient<IPlexClient, PlexClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
 builder.Services.AddHttpClient<IOverseerrClient, OverseerrClient>(client => client.Timeout = TimeSpan.FromSeconds(60));
 builder.Services.AddHttpClient<IConnectionTester, ConnectionTester>(client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient<IPlexAuthService, PlexAuthService>(client => client.Timeout = TimeSpan.FromSeconds(30));
 
 // Domain Services
 builder.Services.AddSingleton<ISmartCategoryEngine, SmartCategoryEngine>();
@@ -222,6 +224,7 @@ app.MapPost("/mcp/messages", async (HttpContext context, CuratarrMcpRegistry reg
 });
 
 // Map REST API Endpoints
+app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapConnectionEndpoints();
 app.MapSettingsEndpoints();

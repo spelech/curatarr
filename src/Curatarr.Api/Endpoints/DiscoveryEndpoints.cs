@@ -1,3 +1,4 @@
+using Curatarr.Core.Models;
 using Curatarr.Core.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -15,7 +16,7 @@ public static class DiscoveryEndpoints
         {
             var services = await discoveryService.DiscoverServicesAsync(ct);
             return Results.Ok(services);
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         return app;
     }

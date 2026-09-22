@@ -3,6 +3,7 @@ import { Film, Tv, Shield, Trash2, ChevronDown, ChevronUp, Eye, History } from '
 import { MediaItem } from '../types/api';
 import { SeasonDrawer } from './SeasonDrawer';
 import { getItemBadges, itemPredatesWatchHistory } from '../utils/badgeUtils';
+import { useAuthStore } from '../stores/useAuthStore';
 
 interface MediaCardProps {
   item: MediaItem;
@@ -21,6 +22,8 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
   onPrune,
   onOpenDetail,
 }) => {
+  const user = useAuthStore((s) => s.user);
+  const isGuest = user?.role === 'Guest';
   const [isExpanded, setIsExpanded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -80,13 +83,15 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
           {/* Top Overlay: Checkbox & Badges (Left), Protect & Prune (Right) */}
           <div className="absolute inset-x-0 top-0 p-2 bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent flex items-start justify-between gap-1.5 z-10 pointer-events-none">
             <div className="flex items-center gap-1 flex-wrap pointer-events-auto">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => onToggleSelect(item.id)}
-                onClick={(e) => e.stopPropagation()}
-                className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950/90 text-sky-600 focus:ring-sky-500 cursor-pointer shadow"
-              />
+              {!isGuest && (
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggleSelect(item.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950/90 text-sky-600 focus:ring-sky-500 cursor-pointer shadow"
+                />
+              )}
               {badges.map((b) => (
                 <span
                   key={b.id}
@@ -113,34 +118,58 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                   Pre-2017
                 </span>
               )}
+              {(item.protectionRequestCount ?? 0) > 0 && (
+                <span
+                  data-testid="protection-request-count-badge"
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm flex items-center gap-0.5"
+                  title={`${item.protectionRequestCount} user${(item.protectionRequestCount ?? 0) > 1 ? 's' : ''} asked to protect this item`}
+                >
+                  <Shield className="w-2.5 h-2.5 text-violet-400" />
+                  <span>{item.protectionRequestCount}</span>
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1 pointer-events-auto">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onToggleProtect(item.id, !item.isProtected);
+                  if (isGuest) {
+                    onOpenDetail(item);
+                  } else {
+                    onToggleProtect(item.id, !item.isProtected);
+                  }
                 }}
-                title={item.isProtected ? `Protected: ${item.protectionReason || 'Whitelist'}` : 'Protect from deletion'}
+                title={
+                  item.isProtected
+                    ? `Protected: ${item.protectionReason || 'Whitelist'}`
+                    : isGuest
+                    ? 'View protection requests / Ask to protect'
+                    : 'Protect from deletion'
+                }
                 className={`p-1 rounded backdrop-blur-sm shadow transition ${
                   item.isProtected
                     ? 'bg-emerald-500/90 text-white hover:bg-emerald-600'
+                    : (item.protectionRequestCount ?? 0) > 0
+                    ? 'bg-violet-600/80 text-white hover:bg-violet-500'
                     : 'bg-slate-900/80 text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
               >
                 <Shield className="w-3 h-3" />
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPrune(item);
-                }}
-                disabled={item.isProtected}
-                title={item.isProtected ? 'Item is protected' : 'Prune item'}
-                className="p-1 rounded backdrop-blur-sm shadow bg-slate-900/80 text-slate-400 hover:text-red-400 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+              {!isGuest && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPrune(item);
+                  }}
+                  disabled={item.isProtected}
+                  title={item.isProtected ? 'Item is protected' : 'Prune item'}
+                  className="p-1 rounded backdrop-blur-sm shadow bg-slate-900/80 text-slate-400 hover:text-red-400 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
 

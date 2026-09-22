@@ -24,7 +24,8 @@ public class MediaRepository : IMediaRepository
             SELECT id, media_type as MediaType, title, sort_title as SortTitle, year, 
                    tmdb_id as TmdbId, tvdb_id as TvdbId, imdb_id as ImdbId, 
                    plex_rating_key as PlexRatingKey, poster_url as PosterUrl, 
-                   added_at as AddedAt, total_size_bytes as TotalSizeBytes, 
+                   added_at as AddedAt, requested_by as RequestedBy, requested_at as RequestedAt,
+                   total_size_bytes as TotalSizeBytes, 
                    is_protected as IsProtected, protection_reason as ProtectionReason, 
                    created_at as CreatedAt, updated_at as UpdatedAt
             FROM media_items
@@ -65,6 +66,16 @@ public class MediaRepository : IMediaRepository
         var watchStats = await conn.QueryAsync<WatchStat>(new CommandDefinition(sqlWatchStats, new { Id = id }, cancellationToken: ct));
         item.WatchStats = watchStats.ToList();
 
+        const string sqlProtReqs = @"
+            SELECT id, media_item_id as MediaItemId, user_id as UserId, 
+                   username, user_thumb as UserThumb, reason, created_at as CreatedAt
+            FROM protection_requests
+            WHERE media_item_id = @Id
+            ORDER BY created_at ASC;";
+        var protReqs = await conn.QueryAsync<ProtectionRequest>(new CommandDefinition(sqlProtReqs, new { Id = id }, cancellationToken: ct));
+        item.ProtectionRequests = protReqs.ToList();
+        item.ProtectionRequestCount = item.ProtectionRequests.Count;
+
         return item;
     }
 
@@ -75,7 +86,8 @@ public class MediaRepository : IMediaRepository
             SELECT id, media_type as MediaType, title, sort_title as SortTitle, year, 
                    tmdb_id as TmdbId, tvdb_id as TvdbId, imdb_id as ImdbId, 
                    plex_rating_key as PlexRatingKey, poster_url as PosterUrl, 
-                   added_at as AddedAt, total_size_bytes as TotalSizeBytes, 
+                   added_at as AddedAt, requested_by as RequestedBy, requested_at as RequestedAt,
+                   total_size_bytes as TotalSizeBytes, 
                    is_protected as IsProtected, protection_reason as ProtectionReason, 
                    created_at as CreatedAt, updated_at as UpdatedAt
             FROM media_items
@@ -208,8 +220,10 @@ public class MediaRepository : IMediaRepository
             SELECT m.id, m.media_type as MediaType, m.title, m.sort_title as SortTitle, m.year, 
                    m.tmdb_id as TmdbId, m.tvdb_id as TvdbId, m.imdb_id as ImdbId, 
                    m.plex_rating_key as PlexRatingKey, m.poster_url as PosterUrl, 
-                   m.added_at as AddedAt, m.total_size_bytes as TotalSizeBytes, 
+                   m.added_at as AddedAt, m.requested_by as RequestedBy, m.requested_at as RequestedAt,
+                   m.total_size_bytes as TotalSizeBytes, 
                    m.is_protected as IsProtected, m.protection_reason as ProtectionReason, 
+                   (SELECT COUNT(*) FROM protection_requests pr WHERE pr.media_item_id = m.id) as ProtectionRequestCount,
                    m.created_at as CreatedAt, m.updated_at as UpdatedAt
             FROM media_items m
             {whereSql}
@@ -221,7 +235,7 @@ public class MediaRepository : IMediaRepository
 
         var itemIds = items.Select(i => i.Id).ToList();
 
-        // Populate child instances, seasons, and watch stats
+        // Populate child instances, seasons, watch stats, and protection requests
         const string sqlInst = @"
             SELECT id, media_item_id as MediaItemId, connection_id as ConnectionId, 
                    external_id as ExternalId, quality_profile_name as QualityProfileName, 
@@ -254,11 +268,22 @@ public class MediaRepository : IMediaRepository
         var allWatch = await conn.QueryAsync<WatchStat>(new CommandDefinition(sqlWatch, new { Ids = itemIds }, cancellationToken: ct));
         var watchLookup = allWatch.ToLookup(w => w.MediaItemId);
 
+        const string sqlProtReqs = @"
+            SELECT id, media_item_id as MediaItemId, user_id as UserId, 
+                   username, user_thumb as UserThumb, reason, created_at as CreatedAt
+            FROM protection_requests
+            WHERE media_item_id IN @Ids
+            ORDER BY created_at ASC;";
+        var allProtReqs = await conn.QueryAsync<ProtectionRequest>(new CommandDefinition(sqlProtReqs, new { Ids = itemIds }, cancellationToken: ct));
+        var protLookup = allProtReqs.ToLookup(p => p.MediaItemId);
+
         foreach (var item in items)
         {
             item.Instances = instLookup[item.Id].ToList();
             item.Seasons = seasLookup[item.Id].ToList();
             item.WatchStats = watchLookup[item.Id].ToList();
+            item.ProtectionRequests = protLookup[item.Id].ToList();
+            item.ProtectionRequestCount = item.ProtectionRequests.Count;
         }
 
         return items;
@@ -271,8 +296,8 @@ public class MediaRepository : IMediaRepository
         using var trans = conn.BeginTransaction();
 
         const string sqlItem = @"
-            INSERT INTO media_items (id, media_type, title, sort_title, year, tmdb_id, tvdb_id, imdb_id, plex_rating_key, poster_url, added_at, total_size_bytes, is_protected, protection_reason, created_at, updated_at)
-            VALUES (@Id, @MediaType, @Title, @SortTitle, @Year, @TmdbId, @TvdbId, @ImdbId, @PlexRatingKey, @PosterUrl, @AddedAt, @TotalSizeBytes, @IsProtected, @ProtectionReason, @CreatedAt, @UpdatedAt)
+            INSERT INTO media_items (id, media_type, title, sort_title, year, tmdb_id, tvdb_id, imdb_id, plex_rating_key, poster_url, added_at, requested_by, requested_at, total_size_bytes, is_protected, protection_reason, created_at, updated_at)
+            VALUES (@Id, @MediaType, @Title, @SortTitle, @Year, @TmdbId, @TvdbId, @ImdbId, @PlexRatingKey, @PosterUrl, @AddedAt, @RequestedBy, @RequestedAt, @TotalSizeBytes, @IsProtected, @ProtectionReason, @CreatedAt, @UpdatedAt)
             ON CONFLICT(id) DO UPDATE SET
                 media_type = excluded.media_type,
                 title = excluded.title,
@@ -284,6 +309,8 @@ public class MediaRepository : IMediaRepository
                 plex_rating_key = COALESCE(excluded.plex_rating_key, media_items.plex_rating_key),
                 poster_url = COALESCE(excluded.poster_url, media_items.poster_url),
                 added_at = COALESCE(excluded.added_at, media_items.added_at),
+                requested_by = COALESCE(excluded.requested_by, media_items.requested_by),
+                requested_at = COALESCE(excluded.requested_at, media_items.requested_at),
                 total_size_bytes = excluded.total_size_bytes,
                 updated_at = excluded.updated_at;";
 
@@ -333,6 +360,8 @@ public class MediaRepository : IMediaRepository
                 item.PlexRatingKey,
                 item.PosterUrl,
                 AddedAt = item.AddedAt?.ToString("o"),
+                item.RequestedBy,
+                RequestedAt = item.RequestedAt?.ToString("o"),
                 item.TotalSizeBytes,
                 item.IsProtected,
                 item.ProtectionReason,
@@ -447,5 +476,55 @@ public class MediaRepository : IMediaRepository
         using var conn = _factory.CreateConnection();
         const string sql = "SELECT COUNT(*) FROM media_items;";
         return await conn.ExecuteScalarAsync<int>(new CommandDefinition(sql, cancellationToken: ct));
+    }
+
+    public async Task AddOrUpdateProtectionRequestAsync(ProtectionRequest req, CancellationToken ct = default)
+    {
+        using var conn = _factory.CreateConnection();
+        const string sql = @"
+            INSERT INTO protection_requests (id, media_item_id, user_id, username, user_thumb, reason, created_at)
+            VALUES (@Id, @MediaItemId, @UserId, @Username, @UserThumb, @Reason, @CreatedAt)
+            ON CONFLICT(media_item_id, user_id) DO UPDATE SET
+                username = excluded.username,
+                user_thumb = excluded.user_thumb,
+                reason = excluded.reason,
+                created_at = excluded.created_at;";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            req.Id,
+            req.MediaItemId,
+            req.UserId,
+            req.Username,
+            req.UserThumb,
+            req.Reason,
+            CreatedAt = req.CreatedAt.ToString("o")
+        }, cancellationToken: ct));
+    }
+
+    public async Task RemoveProtectionRequestAsync(string mediaItemId, string userId, CancellationToken ct = default)
+    {
+        using var conn = _factory.CreateConnection();
+        const string sql = "DELETE FROM protection_requests WHERE media_item_id = @MediaItemId AND user_id = @UserId;";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { MediaItemId = mediaItemId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyList<ProtectionRequest>> GetProtectionRequestsAsync(string mediaItemId, CancellationToken ct = default)
+    {
+        using var conn = _factory.CreateConnection();
+        const string sql = @"
+            SELECT id, media_item_id as MediaItemId, user_id as UserId, username, 
+                   user_thumb as UserThumb, reason, created_at as CreatedAt
+            FROM protection_requests
+            WHERE media_item_id = @MediaItemId
+            ORDER BY created_at ASC;";
+        var results = await conn.QueryAsync<ProtectionRequest>(new CommandDefinition(sql, new { MediaItemId = mediaItemId }, cancellationToken: ct));
+        return results.ToList();
+    }
+
+    public async Task ClearProtectionRequestsAsync(string mediaItemId, CancellationToken ct = default)
+    {
+        using var conn = _factory.CreateConnection();
+        const string sql = "DELETE FROM protection_requests WHERE media_item_id = @MediaItemId;";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { MediaItemId = mediaItemId }, cancellationToken: ct));
     }
 }
