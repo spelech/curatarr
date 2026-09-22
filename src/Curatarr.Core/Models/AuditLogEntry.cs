@@ -24,5 +24,6 @@ public static class SmartCategoryIds
     public const string SpaceHogs = "space_hogs";
     public const string Missing = "missing";
     public const string Protected = "protected";
+    public const string ProtectionRequested = "protection_requested";
     public const string All = "all";
 }

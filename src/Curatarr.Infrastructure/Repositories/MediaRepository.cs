@@ -176,7 +176,17 @@ public class MediaRepository : IMediaRepository
                     whereClauses.Add("(SELECT MAX(ws.last_played_at) FROM watch_stats ws WHERE ws.media_item_id = m.id) < @AbandonedDate");
                     parameters.Add("AbandonedDate", DateTime.UtcNow.AddDays(-settings.AbandonedDays).ToString("o"));
                     break;
+                case SmartCategoryIds.ProtectionRequested:
+                    whereClauses.Add("m.is_protected = 0");
+                    whereClauses.Add("EXISTS (SELECT 1 FROM protection_requests pr WHERE pr.media_item_id = m.id)");
+                    break;
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.RequestedByFilter))
+        {
+            whereClauses.Add("LOWER(m.requested_by) = LOWER(@RequestedBy)");
+            parameters.Add("RequestedBy", options.RequestedByFilter.Trim());
         }
 
         if (!string.IsNullOrWhiteSpace(options.ResolutionFilter))
@@ -518,6 +528,23 @@ public class MediaRepository : IMediaRepository
             WHERE media_item_id = @MediaItemId
             ORDER BY created_at ASC;";
         var results = await conn.QueryAsync<ProtectionRequest>(new CommandDefinition(sql, new { MediaItemId = mediaItemId }, cancellationToken: ct));
+        return results.ToList();
+    }
+
+    public async Task<IReadOnlyList<PendingProtectionRequestDto>> GetAllProtectionRequestsAsync(CancellationToken ct = default)
+    {
+        using var conn = _factory.CreateConnection();
+        const string sql = @"
+            SELECT pr.id as Id, pr.media_item_id as MediaItemId, 
+                   m.title as Title, m.year as Year, m.poster_url as PosterUrl, 
+                   m.media_type as MediaType, m.total_size_bytes as TotalSizeBytes,
+                   pr.user_id as UserId, pr.username as Username, pr.user_thumb as UserThumb, 
+                   pr.reason as Reason, pr.created_at as CreatedAt
+            FROM protection_requests pr
+            INNER JOIN media_items m ON m.id = pr.media_item_id
+            WHERE m.is_protected = 0
+            ORDER BY pr.created_at DESC;";
+        var results = await conn.QueryAsync<PendingProtectionRequestDto>(new CommandDefinition(sql, cancellationToken: ct));
         return results.ToList();
     }
 

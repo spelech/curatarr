@@ -14,6 +14,8 @@ import { PruneConfirmModal } from './components/PruneConfirmModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuditLogModal } from './components/AuditLogModal';
 import { MediaDetailModal } from './components/MediaDetailModal';
+import { CategoryCriteriaModal } from './components/CategoryCriteriaModal';
+import { ProtectionRequestsModal } from './components/ProtectionRequestsModal';
 import { LoginModal } from './components/LoginModal';
 import { ToastContainer } from './components/ToastContainer';
 import { MediaItem } from './types/api';
@@ -40,6 +42,10 @@ export default function App() {
   const clearSelection = useCatalogStore((state) => state.clearSelection);
   const executePrune = useCatalogStore((state) => state.executePrune);
   const refreshPlex = useCatalogStore((state) => state.refreshPlex);
+  const isProtectionModalOpen = useCatalogStore((state) => state.isProtectionModalOpen);
+  const setIsProtectionModalOpen = useCatalogStore((state) => state.setIsProtectionModalOpen);
+  const isCriteriaModalOpen = useCatalogStore((state) => state.isCriteriaModalOpen);
+  const setIsCriteriaModalOpen = useCatalogStore((state) => state.setIsCriteriaModalOpen);
 
   const connections = useConnectionStore((state) => state.connections);
   const fetchConnections = useConnectionStore((state) => state.fetchConnections);
@@ -330,6 +336,21 @@ export default function App() {
         <AuditLogModal
           isOpen={isAuditOpen}
           onClose={() => setIsAuditOpen(false)}
+        />
+      )}
+
+      {/* Category Criteria Rules & Thresholds Guide Modal */}
+      <CategoryCriteriaModal
+        isOpen={isCriteriaModalOpen}
+        onClose={() => setIsCriteriaModalOpen(false)}
+      />
+
+      {/* Admin Protection Requests Triage Modal */}
+      {!isGuest && (
+        <ProtectionRequestsModal
+          isOpen={isProtectionModalOpen}
+          onClose={() => setIsProtectionModalOpen(false)}
+          onOpenDetail={(item) => setDetailItem(item)}
         />
       )}
 

@@ -49,6 +49,21 @@ export interface ProtectionRequest {
   createdAt: string;
 }
 
+export interface PendingProtectionRequest {
+  id: string;
+  mediaItemId: string;
+  title: string;
+  year?: number;
+  posterUrl?: string;
+  mediaType: number;
+  totalSizeBytes: number;
+  userId: string;
+  username: string;
+  userThumb?: string;
+  reason?: string;
+  createdAt: string;
+}
+
 export interface CuratarrUser {
   id: string;
   plexId: string;

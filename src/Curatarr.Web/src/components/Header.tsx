@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, RefreshCw, Settings, History, CheckCircle2, LogOut, User as UserIcon, Eye } from 'lucide-react';
+import { Layers, RefreshCw, Settings, History, CheckCircle2, LogOut, User as UserIcon, Eye, ShieldAlert } from 'lucide-react';
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
@@ -14,6 +14,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
   const prunedNotification = useCatalogStore((s) => s.prunedNotification);
   const refreshPlex = useCatalogStore((s) => s.refreshPlex);
   const clearPrunedNotification = useCatalogStore((s) => s.clearPrunedNotification);
+  const pendingProtectionRequests = useCatalogStore((s) => s.pendingProtectionRequests);
+  const setIsProtectionModalOpen = useCatalogStore((s) => s.setIsProtectionModalOpen);
 
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -117,6 +119,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
 
         {isAdmin && (
           <>
+            {pendingProtectionRequests.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsProtectionModalOpen(true)}
+                title="Review pending protection requests from users"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md bg-violet-500/20 text-violet-300 border border-violet-500/40 hover:bg-violet-500/30 transition cursor-pointer"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-violet-400" />
+                <span>Requests ({pendingProtectionRequests.length})</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenAudit}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition cursor-pointer"

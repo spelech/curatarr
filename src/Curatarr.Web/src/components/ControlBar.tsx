@@ -1,12 +1,15 @@
 import React from 'react';
-import { Search, Film, Tv, LayoutGrid, List, ArrowUpDown, User, History } from 'lucide-react';
+import { Search, Film, Tv, LayoutGrid, List, ArrowUpDown, User, History, Sparkles } from 'lucide-react';
 import { useCatalogStore } from '../stores/useCatalogStore';
+import { useAuthStore } from '../stores/useAuthStore';
 
 export const ControlBar: React.FC = () => {
   const {
     users,
     selectedUserId,
     setSelectedUserId,
+    onlyMyRequests,
+    setOnlyMyRequests,
     selectedMediaType,
     setSelectedMediaType,
     selectedResolution,
@@ -29,6 +32,8 @@ export const ControlBar: React.FC = () => {
     clearSelection,
   } = useCatalogStore();
 
+  const currentUser = useAuthStore((s) => s.user);
+  const selectedUser = users.find((u) => u.userId === selectedUserId);
   const isAllSelected = items.length > 0 && selectedIds.size === items.length;
 
   return (
@@ -108,6 +113,27 @@ export const ControlBar: React.FC = () => {
           title="Show only items where quality cutoff is unmet in Radarr/Sonarr"
         >
           <span>Cutoff Unmet</span>
+        </button>
+
+        {/* My Requests / Requester Filter Button */}
+        <button
+          onClick={() => setOnlyMyRequests(!onlyMyRequests)}
+          className={`px-2.5 py-1 min-h-[28px] rounded-md border text-xs font-medium transition flex items-center gap-1.5 ${
+            onlyMyRequests
+              ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sm'
+              : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+          }`}
+          title={
+            selectedUser
+              ? `Filter to items requested in Overseerr by ${selectedUser.friendlyName || selectedUser.username}`
+              : currentUser?.username
+              ? `Filter to items requested in Overseerr by you (${currentUser.username})`
+              : 'Filter to items requested in Overseerr'
+          }
+          aria-label="Filter to my requests"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>My Requests</span>
         </button>
       </div>
 

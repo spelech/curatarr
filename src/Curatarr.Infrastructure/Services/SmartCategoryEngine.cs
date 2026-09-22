@@ -109,6 +109,15 @@ public class SmartCategoryEngine : ISmartCategoryEngine
 
         var prot = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlProtected, cancellationToken: ct));
 
+        // Protection Requests (items not yet protected where users asked to protect)
+        const string sqlProtReq = @"
+            SELECT COUNT(DISTINCT m.id) as Count, COALESCE(SUM(m.total_size_bytes), 0) as Size
+            FROM media_items m
+            WHERE m.is_protected = 0
+              AND EXISTS (SELECT 1 FROM protection_requests pr WHERE pr.media_item_id = m.id);";
+
+        var protReq = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlProtReq, cancellationToken: ct));
+
         return
         [
             new CategoryCountSummary(SmartCategoryIds.NeverWatched, settings.NeverWatchedMinAgeDays > 0 ? $"Never Watched (>{settings.NeverWatchedMinAgeDays}d)" : "Never Watched", never.Count, never.Size),
@@ -118,6 +127,7 @@ public class SmartCategoryEngine : ISmartCategoryEngine
             new CategoryCountSummary(SmartCategoryIds.SpaceHogs, "Space Hogs", space.Count, space.Size),
             new CategoryCountSummary(SmartCategoryIds.Missing, "Missing / Stalled", missing.Count, 0),
             new CategoryCountSummary(SmartCategoryIds.Protected, "Protected", prot.Count, prot.Size),
+            new CategoryCountSummary(SmartCategoryIds.ProtectionRequested, "Protection Requests", protReq.Count, protReq.Size),
         ];
     }
 }
