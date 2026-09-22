@@ -239,4 +239,121 @@ public class AuthAndGuestViewTests : IDisposable
         opp.RequestedBy.Should().Be("JohnDoe");
         opp.RequestedAt.Should().Be(requestedTime);
     }
+
+    [Fact]
+    public async Task MediaRepository_GetProtectionRequestsAsync_ShouldReturnRequesters()
+    {
+        await _initializer.InitializeAsync();
+
+        var item = new MediaItem
+        {
+            Id = "item-req-test",
+            MediaType = MediaType.Movie,
+            Title = "Requester Test Movie",
+            SortTitle = "Requester Test Movie",
+            TotalSizeBytes = 1024,
+            IsProtected = false
+        };
+        await _mediaRepo.UpsertBatchAsync([item]);
+
+        var req1 = new ProtectionRequest
+        {
+            Id = "req-1",
+            MediaItemId = "item-req-test",
+            UserId = "user-alice",
+            Username = "Alice",
+            Reason = "Favorite film",
+            CreatedAt = DateTime.UtcNow
+        };
+        var req2 = new ProtectionRequest
+        {
+            Id = "req-2",
+            MediaItemId = "item-req-test",
+            UserId = "user-bob",
+            Username = "Bob",
+            Reason = "Planning to watch",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _mediaRepo.AddOrUpdateProtectionRequestAsync(req1);
+        await _mediaRepo.AddOrUpdateProtectionRequestAsync(req2);
+
+        var requests = await _mediaRepo.GetProtectionRequestsAsync("item-req-test");
+        requests.Should().HaveCount(2);
+        requests.Select(r => r.Username).Should().Contain(["Alice", "Bob"]);
+    }
+
+    [Fact]
+    public async Task PlexAuthService_CreatePinAndClaim_ShouldHandleLifecycle()
+    {
+        await _initializer.InitializeAsync();
+
+        var mockHttp = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri?.ToString() ?? "";
+            if (url.Contains("/api/v2/pins?strong=true"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.Created)
+                {
+                    Content = new StringContent("{\"id\": 9999, \"code\": \"WXYZ-5678\"}")
+                };
+            }
+            if (url.Contains("/api/v2/pins/9999"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 9999, \"code\": \"WXYZ-5678\", \"authToken\": \"plex-token-secret\"}")
+                };
+            }
+            if (url.Contains("/api/v2/user"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 101, \"uuid\": \"uuid-101\", \"username\": \"PlexAdminUser\", \"email\": \"admin@plex.local\", \"thumb\": \"https://plex.tv/thumb.jpg\"}")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(mockHttp);
+        var authService = new PlexAuthService(httpClient, _userRepo, _settingsRepo, _connRepo);
+
+        // 1. Create PIN
+        var pin = await authService.CreatePinAsync();
+        pin.Id.Should().Be(9999);
+        pin.Code.Should().Be("WXYZ-5678");
+        pin.AuthUrl.Should().Contain("WXYZ-5678");
+
+        // 2. Claim PIN (first user -> Admin)
+        var claimResult = await authService.ClaimPinAsync(9999);
+        claimResult.Claimed.Should().BeTrue();
+        claimResult.User.Should().NotBeNull();
+        claimResult.User!.Username.Should().Be("PlexAdminUser");
+        claimResult.User.Role.Should().Be(UserRole.Admin);
+        claimResult.Token.Should().NotBeNullOrEmpty();
+
+        // 3. Verify Session
+        var secret = await authService.GetOrCreateSessionSecretAsync();
+        var verified = authService.ValidateSessionToken(claimResult.Token!, secret);
+        verified.Should().NotBeNull();
+        verified!.UserId.Should().Be(claimResult.User.Id);
+        verified.Username.Should().Be("PlexAdminUser");
+        verified.Role.Should().Be(UserRole.Admin);
+    }
+
+    private class MockHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
+
+        public MockHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)
+        {
+            _handler = handler;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_handler(request));
+        }
+    }
 }
