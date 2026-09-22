@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Curatarr.Core.Adapters;
 using Curatarr.Core.Models;
 using Curatarr.Core.Repositories;
 using Curatarr.Core.Services;
@@ -13,17 +14,20 @@ public class PlexAuthService : IPlexAuthService
     private readonly IUserRepository _userRepo;
     private readonly ISettingsRepository _settingsRepo;
     private readonly IConnectionRepository _connRepo;
+    private readonly IPlexClient? _plexClient;
 
     public PlexAuthService(
         HttpClient httpClient,
         IUserRepository userRepo,
         ISettingsRepository settingsRepo,
-        IConnectionRepository connRepo)
+        IConnectionRepository connRepo,
+        IPlexClient? plexClient = null)
     {
         _httpClient = httpClient;
         _userRepo = userRepo;
         _settingsRepo = settingsRepo;
         _connRepo = connRepo;
+        _plexClient = plexClient;
     }
 
     public async Task<string> GetOrCreateClientIdAsync(CancellationToken ct = default)
@@ -130,78 +134,120 @@ public class PlexAuthService : IPlexAuthService
             return new PlexClaimResult(false, null, null, "Failed to resolve Plex user profile");
         }
 
-        // Determine Role
+        // Determine Role & Server Membership
         var settings = await _settingsRepo.GetSettingsAsync(ct);
         var totalUsers = await _userRepo.GetCountAsync(ct);
+        var existing = await _userRepo.GetByPlexIdAsync(plexId, ct);
         var determinedRole = UserRole.Guest;
+
+        var adminList = (settings.AdminUsernames ?? "")
+            .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        bool isExplicitAdmin = adminList.Any(a =>
+            string.Equals(a, username, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(email) && string.Equals(a, email, StringComparison.OrdinalIgnoreCase)));
 
         if (totalUsers == 0)
         {
-            // First user to log in is automatically Admin
+            // First user to log in is automatically Admin during initial system setup
             determinedRole = UserRole.Admin;
         }
-        else
+        else if (isExplicitAdmin || existing?.Role == UserRole.Admin)
         {
-            // Check AdminUsernames setting
-            var adminList = (settings.AdminUsernames ?? "")
-                .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            determinedRole = UserRole.Admin;
+        }
 
-            if (adminList.Any(a => string.Equals(a, username, StringComparison.OrdinalIgnoreCase) ||
-                                  (!string.IsNullOrEmpty(email) && string.Equals(a, email, StringComparison.OrdinalIgnoreCase))))
+        // Verify Server Membership against configured Plex servers
+        var connections = await _connRepo.GetAllAsync(ct);
+        var plexConns = connections.Where(c => c.ConnectionType == ConnectionType.Plex && c.IsEnabled).ToList();
+
+        if (plexConns.Count > 0)
+        {
+            bool hasServerAccess = false;
+            bool isServerOwner = false;
+
+            try
             {
-                determinedRole = UserRole.Admin;
-            }
-            else
-            {
-                // Check if user owns the configured Plex server
-                try
+                using var resReq = new HttpRequestMessage(HttpMethod.Get, "https://plex.tv/api/v2/resources?includeHttps=1");
+                resReq.Headers.Add("X-Plex-Token", authToken);
+                resReq.Headers.Add("X-Plex-Client-Identifier", clientId);
+                resReq.Headers.Add("Accept", "application/json");
+
+                using var resRes = await _httpClient.SendAsync(resReq, ct);
+                if (resRes.IsSuccessStatusCode)
                 {
-                    using var resReq = new HttpRequestMessage(HttpMethod.Get, "https://plex.tv/api/v2/resources?includeHttps=1");
-                    resReq.Headers.Add("X-Plex-Token", authToken);
-                    resReq.Headers.Add("X-Plex-Client-Identifier", clientId);
-                    resReq.Headers.Add("Accept", "application/json");
-
-                    using var resRes = await _httpClient.SendAsync(resReq, ct);
-                    if (resRes.IsSuccessStatusCode)
+                    using var resStream = await resRes.Content.ReadAsStreamAsync(ct);
+                    using var resDoc = await JsonDocument.ParseAsync(resStream, cancellationToken: ct);
+                    if (resDoc.RootElement.ValueKind == JsonValueKind.Array)
                     {
-                        using var resStream = await resRes.Content.ReadAsStreamAsync(ct);
-                        using var resDoc = await JsonDocument.ParseAsync(resStream, cancellationToken: ct);
-                        if (resDoc.RootElement.ValueKind == JsonValueKind.Array)
+                        var targetIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        var targetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                        foreach (var conn in plexConns)
                         {
-                            var connections = await _connRepo.GetAllAsync(ct);
-                            var plexConns = connections.Where(c => c.ConnectionType == ConnectionType.Plex && c.IsEnabled).ToList();
-
-                            foreach (var item in resDoc.RootElement.EnumerateArray())
+                            if (!string.IsNullOrWhiteSpace(conn.Name))
                             {
-                                var provides = item.TryGetProperty("provides", out var p) ? p.GetString() : null;
-                                var owned = item.TryGetProperty("owned", out var o) && o.GetBoolean();
-                                if (provides == "server" && owned)
-                                {
-                                    // If Curatarr has no Plex connections yet or matches server name/clientIdentifier
-                                    var clientIdentifier = item.TryGetProperty("clientIdentifier", out var ci) ? ci.GetString() : null;
-                                    var serverName = item.TryGetProperty("name", out var sn) ? sn.GetString() : null;
+                                targetNames.Add(conn.Name.Trim());
+                            }
 
-                                    if (plexConns.Count == 0 || plexConns.Any(pc =>
-                                        (!string.IsNullOrEmpty(clientIdentifier) && pc.ApiKey == clientIdentifier) ||
-                                        (!string.IsNullOrEmpty(serverName) && string.Equals(pc.Name, serverName, StringComparison.OrdinalIgnoreCase))))
+                            string? machineId = null;
+                            if (_plexClient != null)
+                            {
+                                machineId = await _plexClient.GetMachineIdentifierAsync(conn, ct);
+                            }
+                            if (string.IsNullOrWhiteSpace(machineId))
+                            {
+                                machineId = await FetchMachineIdentifierAsync(conn, ct);
+                            }
+                            if (!string.IsNullOrWhiteSpace(machineId))
+                            {
+                                targetIdentifiers.Add(machineId.Trim());
+                            }
+                        }
+
+                        foreach (var item in resDoc.RootElement.EnumerateArray())
+                        {
+                            var provides = item.TryGetProperty("provides", out var p) ? p.GetString() : null;
+                            if (provides != null && provides.Contains("server", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var clientIdentifier = item.TryGetProperty("clientIdentifier", out var ci) ? ci.GetString() : null;
+                                var serverName = item.TryGetProperty("name", out var sn) ? sn.GetString() : null;
+                                var owned = item.TryGetProperty("owned", out var o) && o.GetBoolean();
+
+                                bool matchesIdentifier = !string.IsNullOrWhiteSpace(clientIdentifier) && targetIdentifiers.Contains(clientIdentifier);
+                                bool matchesName = !string.IsNullOrWhiteSpace(serverName) && targetNames.Contains(serverName);
+
+                                if (matchesIdentifier || matchesName)
+                                {
+                                    hasServerAccess = true;
+                                    if (owned)
                                     {
-                                        determinedRole = UserRole.Admin;
-                                        break;
+                                        isServerOwner = true;
                                     }
                                 }
                             }
                         }
                     }
                 }
-                catch
-                {
-                    // Fallback to guest if resource check fails
-                }
+            }
+            catch
+            {
+                // Fallback / network resilience
+            }
+
+            if (isServerOwner)
+            {
+                determinedRole = UserRole.Admin;
+            }
+
+            // Reject external users who don't belong to the configured Plex server
+            if (totalUsers > 0 && !isExplicitAdmin && existing?.Role != UserRole.Admin && !hasServerAccess)
+            {
+                return new PlexClaimResult(false, null, null, "Access denied: You do not have access to this Plex server.");
             }
         }
 
         // Upsert User
-        var existing = await _userRepo.GetByPlexIdAsync(plexId, ct);
         User finalUser;
         if (existing != null)
         {
@@ -301,6 +347,38 @@ public class PlexAuthService : IPlexAuthService
         {
             return null;
         }
+    }
+
+    private async Task<string?> FetchMachineIdentifierAsync(ServiceConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            var baseUrl = conn.BaseUrl.TrimEnd('/');
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/identity");
+            if (!string.IsNullOrWhiteSpace(conn.ApiKey))
+            {
+                req.Headers.Add("X-Plex-Token", conn.ApiKey);
+            }
+            req.Headers.Add("Accept", "application/json");
+
+            using var res = await _httpClient.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode)
+            {
+                using var stream = await res.Content.ReadAsStreamAsync(ct);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+                if (doc.RootElement.TryGetProperty("MediaContainer", out var mc) &&
+                    mc.TryGetProperty("machineIdentifier", out var mid))
+                {
+                    return mid.GetString();
+                }
+            }
+        }
+        catch
+        {
+            // Ignore
+        }
+
+        return null;
     }
 
     private static string Base64UrlEncode(byte[] input)

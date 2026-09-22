@@ -21,6 +21,32 @@ public class PlexClient : IPlexClient
         return req;
     }
 
+    public async Task<string?> GetMachineIdentifierAsync(ServiceConnection connection, CancellationToken ct = default)
+    {
+        try
+        {
+            var baseUrl = connection.BaseUrl.TrimEnd('/');
+            using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/identity", connection.ApiKey);
+            using var res = await _httpClient.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode)
+            {
+                using var stream = await res.Content.ReadAsStreamAsync(ct);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+                if (doc.RootElement.TryGetProperty("MediaContainer", out var mc) &&
+                    mc.TryGetProperty("machineIdentifier", out var mid))
+                {
+                    return mid.GetString();
+                }
+            }
+        }
+        catch
+        {
+            // Return null if unreachable
+        }
+
+        return null;
+    }
+
     public async Task<IReadOnlyList<PlexSectionDto>> GetSectionsAsync(ServiceConnection connection, CancellationToken ct = default)
     {
         var baseUrl = connection.BaseUrl.TrimEnd('/');

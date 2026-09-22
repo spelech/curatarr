@@ -342,6 +342,267 @@ public class AuthAndGuestViewTests : IDisposable
         verified.Role.Should().Be(UserRole.Admin);
     }
 
+    [Fact]
+    public async Task PlexAuthService_ClaimPin_WhenConfiguredServerOwner_ShouldAuthenticateAsAdmin()
+    {
+        await _initializer.InitializeAsync();
+
+        // Seed 1 user so totalUsers > 0
+        await _userRepo.UpsertAsync(new User { Id = "seed-user", PlexId = "seed-plex", Username = "SeedAdmin", Role = UserRole.Admin });
+
+        // Seed Plex connection
+        await _connRepo.UpsertAsync(new ServiceConnection
+        {
+            Id = "plex-conn",
+            ConnectionType = ConnectionType.Plex,
+            Name = "Plex-LS",
+            BaseUrl = "http://plex.local:32400",
+            ApiKey = "server-token",
+            IsEnabled = true
+        });
+
+        var mockHttp = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri?.ToString() ?? "";
+            if (url.Contains("/api/v2/pins/1001"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 1001, \"code\": \"ABCD-1234\", \"authToken\": \"owner-token\"}")
+                };
+            }
+            if (url.Contains("/api/v2/user"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 501, \"username\": \"PlexOwner\", \"email\": \"owner@plex.local\", \"thumb\": \"https://plex.tv/owner.jpg\"}")
+                };
+            }
+            if (url.Contains("/identity"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"MediaContainer\": {\"machineIdentifier\": \"mid-server-123\"}}")
+                };
+            }
+            if (url.Contains("/api/v2/resources"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[{\"name\": \"Plex-LS\", \"clientIdentifier\": \"mid-server-123\", \"provides\": \"server\", \"owned\": true}]")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(mockHttp);
+        var authService = new PlexAuthService(httpClient, _userRepo, _settingsRepo, _connRepo);
+
+        var result = await authService.ClaimPinAsync(1001);
+        result.Claimed.Should().BeTrue();
+        result.User.Should().NotBeNull();
+        result.User!.Username.Should().Be("PlexOwner");
+        result.User.Role.Should().Be(UserRole.Admin);
+    }
+
+    [Fact]
+    public async Task PlexAuthService_ClaimPin_WhenConfiguredServerSharedUser_ShouldAuthenticateAsGuest()
+    {
+        await _initializer.InitializeAsync();
+
+        // Seed 1 user so totalUsers > 0
+        await _userRepo.UpsertAsync(new User { Id = "seed-user", PlexId = "seed-plex", Username = "SeedAdmin", Role = UserRole.Admin });
+
+        // Seed Plex connection
+        await _connRepo.UpsertAsync(new ServiceConnection
+        {
+            Id = "plex-conn",
+            ConnectionType = ConnectionType.Plex,
+            Name = "Plex-LS",
+            BaseUrl = "http://plex.local:32400",
+            ApiKey = "server-token",
+            IsEnabled = true
+        });
+
+        var mockHttp = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri?.ToString() ?? "";
+            if (url.Contains("/api/v2/pins/1002"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 1002, \"code\": \"ABCD-1234\", \"authToken\": \"shared-user-token\"}")
+                };
+            }
+            if (url.Contains("/api/v2/user"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 502, \"username\": \"SharedFriend\", \"email\": \"friend@example.com\", \"thumb\": \"https://plex.tv/friend.jpg\"}")
+                };
+            }
+            if (url.Contains("/identity"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"MediaContainer\": {\"machineIdentifier\": \"mid-server-123\"}}")
+                };
+            }
+            if (url.Contains("/api/v2/resources"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[{\"name\": \"Plex-LS\", \"clientIdentifier\": \"mid-server-123\", \"provides\": \"server\", \"owned\": false}]")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(mockHttp);
+        var authService = new PlexAuthService(httpClient, _userRepo, _settingsRepo, _connRepo);
+
+        var result = await authService.ClaimPinAsync(1002);
+        result.Claimed.Should().BeTrue();
+        result.User.Should().NotBeNull();
+        result.User!.Username.Should().Be("SharedFriend");
+        result.User.Role.Should().Be(UserRole.Guest);
+    }
+
+    [Fact]
+    public async Task PlexAuthService_ClaimPin_WhenExternalUserWithoutServerAccess_ShouldDenyAccess()
+    {
+        await _initializer.InitializeAsync();
+
+        // Seed 1 user so totalUsers > 0
+        await _userRepo.UpsertAsync(new User { Id = "seed-user", PlexId = "seed-plex", Username = "SeedAdmin", Role = UserRole.Admin });
+
+        // Seed Plex connection
+        await _connRepo.UpsertAsync(new ServiceConnection
+        {
+            Id = "plex-conn",
+            ConnectionType = ConnectionType.Plex,
+            Name = "Plex-LS",
+            BaseUrl = "http://plex.local:32400",
+            ApiKey = "server-token",
+            IsEnabled = true
+        });
+
+        var mockHttp = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri?.ToString() ?? "";
+            if (url.Contains("/api/v2/pins/1003"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 1003, \"code\": \"ABCD-1234\", \"authToken\": \"stranger-token\"}")
+                };
+            }
+            if (url.Contains("/api/v2/user"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 503, \"username\": \"StrangerUser\", \"email\": \"stranger@other.com\", \"thumb\": \"https://plex.tv/stranger.jpg\"}")
+                };
+            }
+            if (url.Contains("/identity"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"MediaContainer\": {\"machineIdentifier\": \"mid-server-123\"}}")
+                };
+            }
+            if (url.Contains("/api/v2/resources"))
+            {
+                // Stranger only has access to some unrelated other server
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[{\"name\": \"OtherServer\", \"clientIdentifier\": \"mid-other-999\", \"provides\": \"server\", \"owned\": true}]")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(mockHttp);
+        var authService = new PlexAuthService(httpClient, _userRepo, _settingsRepo, _connRepo);
+
+        var result = await authService.ClaimPinAsync(1003);
+        result.Claimed.Should().BeFalse();
+        result.User.Should().BeNull();
+        result.Token.Should().BeNull();
+        result.Error.Should().Be("Access denied: You do not have access to this Plex server.");
+    }
+
+    [Fact]
+    public async Task PlexAuthService_ClaimPin_WhenUserInAdminUsernames_ShouldAllowAsAdminEvenWithoutServerInResources()
+    {
+        await _initializer.InitializeAsync();
+
+        // Seed 1 user so totalUsers > 0
+        await _userRepo.UpsertAsync(new User { Id = "seed-user", PlexId = "seed-plex", Username = "SeedAdmin", Role = UserRole.Admin });
+
+        // Add explicit admin username
+        var currentSettings = await _settingsRepo.GetSettingsAsync();
+        await _settingsRepo.SaveSettingsAsync(currentSettings with { AdminUsernames = "specialadmin, other" });
+
+        // Seed Plex connection
+        await _connRepo.UpsertAsync(new ServiceConnection
+        {
+            Id = "plex-conn",
+            ConnectionType = ConnectionType.Plex,
+            Name = "Plex-LS",
+            BaseUrl = "http://plex.local:32400",
+            ApiKey = "server-token",
+            IsEnabled = true
+        });
+
+        var mockHttp = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri?.ToString() ?? "";
+            if (url.Contains("/api/v2/pins/1004"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 1004, \"code\": \"ABCD-1234\", \"authToken\": \"special-token\"}")
+                };
+            }
+            if (url.Contains("/api/v2/user"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 504, \"username\": \"specialadmin\", \"email\": \"special@admin.com\", \"thumb\": null}")
+                };
+            }
+            if (url.Contains("/identity"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"MediaContainer\": {\"machineIdentifier\": \"mid-server-123\"}}")
+                };
+            }
+            if (url.Contains("/api/v2/resources"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[]")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(mockHttp);
+        var authService = new PlexAuthService(httpClient, _userRepo, _settingsRepo, _connRepo);
+
+        var result = await authService.ClaimPinAsync(1004);
+        result.Claimed.Should().BeTrue();
+        result.User.Should().NotBeNull();
+        result.User!.Username.Should().Be("specialadmin");
+        result.User.Role.Should().Be(UserRole.Admin);
+    }
+
     private class MockHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
