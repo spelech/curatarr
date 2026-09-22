@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Film } from 'lucide-react';
+import { Film, Eye } from 'lucide-react';
 import { useCatalogStore } from './stores/useCatalogStore';
 import { useConnectionStore } from './stores/useConnectionStore';
 import { useToastStore } from './stores/useToastStore';
@@ -45,8 +45,10 @@ export default function App() {
   const fetchConnections = useConnectionStore((state) => state.fetchConnections);
 
   const user = useAuthStore((state) => state.user);
+  const isPreviewingAsGuest = useAuthStore((state) => state.isPreviewingAsGuest);
+  const setPreviewAsGuest = useAuthStore((state) => state.setPreviewAsGuest);
   const checkAuth = useAuthStore((state) => state.checkAuth);
-  const isGuest = user?.role === 'Guest';
+  const isGuest = user?.role === 'Guest' || isPreviewingAsGuest;
 
   const addToast = useToastStore((state) => state.addToast);
   const removeToast = useToastStore((state) => state.removeToast);
@@ -195,6 +197,25 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* Guest Preview Mode Sticky Banner */}
+      {isPreviewingAsGuest && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40 backdrop-blur-sm sticky top-0">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Guest Preview Mode:</strong> You are viewing Curatarr as a non-admin library user. Deletion, pruning, and settings are hidden.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPreviewAsGuest(false)}
+            className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all text-xs cursor-pointer"
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
+
       {/* Top Header */}
       <Header
         onOpenSettings={() => !isGuest && setIsSettingsOpen(true)}

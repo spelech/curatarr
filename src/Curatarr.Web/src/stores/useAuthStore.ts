@@ -10,12 +10,14 @@ interface AuthState {
   isLoggingIn: boolean;
   loginError: string | null;
   activePin: { id: number; code: string; authUrl: string } | null;
+  isPreviewingAsGuest: boolean;
 
   checkAuth: () => Promise<void>;
   startPlexLogin: () => Promise<string | null>;
   claimPlexPin: (pinId: number) => Promise<boolean>;
   logout: () => Promise<void>;
   setUser: (user: CuratarrUser | null) => void;
+  setPreviewAsGuest: (preview: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -27,6 +29,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoggingIn: false,
   loginError: null,
   activePin: null,
+  isPreviewingAsGuest: false,
+
+  setPreviewAsGuest: (preview) => {
+    set({ isPreviewingAsGuest: preview });
+  },
 
   setUser: (user) => {
     set({
@@ -130,7 +137,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       user: null,
       isAuthenticated: false,
       activePin: null,
-      isLoggingIn: false
+      isLoggingIn: false,
+      isPreviewingAsGuest: false
     });
   }
 }));

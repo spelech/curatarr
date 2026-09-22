@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, RefreshCw, Settings, History, CheckCircle2, LogOut, User as UserIcon } from 'lucide-react';
+import { Layers, RefreshCw, Settings, History, CheckCircle2, LogOut, User as UserIcon, Eye } from 'lucide-react';
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
@@ -17,9 +17,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
 
   const user = useAuthStore((s) => s.user);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isPreviewingAsGuest = useAuthStore((s) => s.isPreviewingAsGuest);
+  const setPreviewAsGuest = useAuthStore((s) => s.setPreviewAsGuest);
   const logout = useAuthStore((s) => s.logout);
 
-  const isAdmin = !user || user.role === 'Admin';
+  const isAdmin = (!user || user.role === 'Admin') && !isPreviewingAsGuest;
   const [plexStatus, setPlexStatus] = React.useState<string | null>(null);
 
   const handlePlexRefresh = async () => {
@@ -86,14 +88,31 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit }) =
             <span className="font-medium text-slate-200">{user.username}</span>
             <span
               className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                user.role === 'Admin'
+                isAdmin
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-slate-700/80 text-slate-300 border border-slate-600'
               }`}
             >
-              {user.role}
+              {isPreviewingAsGuest ? 'Guest (Preview)' : user.role}
             </span>
           </div>
+        )}
+
+        {/* Admin Guest Preview Toggle */}
+        {user?.role === 'Admin' && (
+          <button
+            type="button"
+            onClick={() => setPreviewAsGuest(!isPreviewingAsGuest)}
+            title={isPreviewingAsGuest ? 'Exit Guest Preview' : 'Preview what guests see'}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md border transition cursor-pointer ${
+              isPreviewingAsGuest
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700/60'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>{isPreviewingAsGuest ? 'Exit Guest View' : 'View as Guest'}</span>
+          </button>
         )}
 
         {isAdmin && (

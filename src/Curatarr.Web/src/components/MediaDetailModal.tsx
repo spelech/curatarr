@@ -37,8 +37,9 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
   onPrune,
 }) => {
   const user = useAuthStore((s) => s.user);
-  const isGuest = user?.role === 'Guest';
-  const isAdmin = user?.role === 'Admin';
+  const isPreviewingAsGuest = useAuthStore((s) => s.isPreviewingAsGuest);
+  const isGuest = user?.role === 'Guest' || isPreviewingAsGuest;
+  const isAdmin = user?.role === 'Admin' && !isPreviewingAsGuest;
 
   const catalogItem = useCatalogStore((s) => s.items.find((i) => i.id === item?.id));
   const currentItem = catalogItem || item;

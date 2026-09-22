@@ -4,6 +4,7 @@ import { MediaCard } from './MediaCard';
 import { TableView } from './TableView';
 import { MediaDetailModal } from './MediaDetailModal';
 import { LoginModal } from './LoginModal';
+import { Header } from './Header';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { MediaItem } from '../types/api';
@@ -239,6 +240,40 @@ describe('Guest View Mode & Protection Requests Component Tests', () => {
 
       const { container } = render(<LoginModal />);
       expect(container.firstChild).toBeNull();
+    });
+  });
+
+  describe('Header Admin Guest Preview Toggle', () => {
+    it('allows Admin to toggle into guest preview and exit it', () => {
+      useAuthStore.setState({
+        user: { id: 'usr-admin', plexId: '1', username: 'admin_steve', role: 'Admin' },
+        isAuthenticated: true,
+        isPreviewingAsGuest: false,
+      });
+
+      const { rerender } = render(<Header onOpenSettings={vi.fn()} onOpenAudit={vi.fn()} />);
+
+      // Admin initially sees Settings and View as Guest
+      expect(screen.getByText('Settings')).toBeDefined();
+      expect(screen.getByText('Audit Log')).toBeDefined();
+      const toggleBtn = screen.getByText('View as Guest');
+      expect(toggleBtn).toBeDefined();
+
+      // Click View as Guest
+      fireEvent.click(toggleBtn);
+      expect(useAuthStore.getState().isPreviewingAsGuest).toBe(true);
+
+      rerender(<Header onOpenSettings={vi.fn()} onOpenAudit={vi.fn()} />);
+
+      // Now in guest preview: Settings & Audit Log are hidden
+      expect(screen.queryByText('Settings')).toBeNull();
+      expect(screen.queryByText('Audit Log')).toBeNull();
+      expect(screen.getByText('Guest (Preview)')).toBeDefined();
+      expect(screen.getByText('Exit Guest View')).toBeDefined();
+
+      // Click Exit Guest View
+      fireEvent.click(screen.getByText('Exit Guest View'));
+      expect(useAuthStore.getState().isPreviewingAsGuest).toBe(false);
     });
   });
 });

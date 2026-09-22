@@ -42,7 +42,8 @@ const TableRow = React.memo<TableRowProps>(
     formatDate,
   }) => {
     const user = useAuthStore((s) => s.user);
-    const isGuest = user?.role === 'Guest';
+    const isPreviewingAsGuest = useAuthStore((s) => s.isPreviewingAsGuest);
+    const isGuest = user?.role === 'Guest' || isPreviewingAsGuest;
     const totalPlays = item.watchStats.reduce((sum, w) => sum + w.playCount, 0);
 
     return (

@@ -130,5 +130,16 @@ describe('useAuthStore', () => {
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(false);
     expect(state.user).toBeNull();
+    expect(state.isPreviewingAsGuest).toBe(false);
+  });
+
+  it('should toggle isPreviewingAsGuest state', () => {
+    expect(useAuthStore.getState().isPreviewingAsGuest).toBe(false);
+
+    useAuthStore.getState().setPreviewAsGuest(true);
+    expect(useAuthStore.getState().isPreviewingAsGuest).toBe(true);
+
+    useAuthStore.getState().setPreviewAsGuest(false);
+    expect(useAuthStore.getState().isPreviewingAsGuest).toBe(false);
   });
 });

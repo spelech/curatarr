@@ -23,7 +23,8 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
   onOpenDetail,
 }) => {
   const user = useAuthStore((s) => s.user);
-  const isGuest = user?.role === 'Guest';
+  const isPreviewingAsGuest = useAuthStore((s) => s.isPreviewingAsGuest);
+  const isGuest = user?.role === 'Guest' || isPreviewingAsGuest;
   const [isExpanded, setIsExpanded] = useState(false);
   const [imgError, setImgError] = useState(false);
 
