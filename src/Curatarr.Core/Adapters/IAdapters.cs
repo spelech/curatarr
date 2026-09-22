@@ -32,6 +32,7 @@ public interface ITautulliClient
 
 public interface IPlexClient
 {
+    Task<string?> GetMachineIdentifierAsync(ServiceConnection connection, CancellationToken ct = default);
     Task<IReadOnlyList<PlexSectionDto>> GetSectionsAsync(ServiceConnection connection, CancellationToken ct = default);
     Task<IReadOnlyList<PlexMetadataItemDto>> GetSectionItemsAsync(ServiceConnection connection, string sectionKey, CancellationToken ct = default);
     Task RefreshSectionAsync(ServiceConnection connection, string sectionKey, CancellationToken ct = default);
