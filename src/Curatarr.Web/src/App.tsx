@@ -60,6 +60,7 @@ export default function App() {
     isOpen: boolean;
     items: MediaItem[];
     seasonNumber?: number;
+    initialTargetConnectionIds?: string[];
   }>({
     isOpen: false,
     items: [],
@@ -90,11 +91,16 @@ export default function App() {
   );
 
   // Single Item Prune Trigger
-  const handleOpenSinglePrune = useCallback((item: MediaItem, seasonNumber?: number) => {
+  const handleOpenSinglePrune = useCallback((
+    item: MediaItem,
+    seasonNumber?: number,
+    targetConnectionIds?: string[]
+  ) => {
     setPruneModalState({
       isOpen: true,
       items: [item],
       seasonNumber,
+      initialTargetConnectionIds: targetConnectionIds,
     });
   }, []);
 
@@ -293,9 +299,9 @@ export default function App() {
             setDetailItem({ ...detailItem, isProtected, protectionReason: reason });
           }
         }}
-        onPrune={(item, seasonNum) => {
+        onPrune={(item, seasonNum, targetConnectionIds) => {
           setDetailItem(null);
-          handleOpenSinglePrune(item, seasonNum);
+          handleOpenSinglePrune(item, seasonNum, targetConnectionIds);
         }}
       />
 
@@ -304,6 +310,7 @@ export default function App() {
         <PruneConfirmModal
           items={pruneModalState.items}
           seasonNumber={pruneModalState.seasonNumber}
+          initialTargetConnectionIds={pruneModalState.initialTargetConnectionIds}
           isOpen={pruneModalState.isOpen}
           onClose={() => setPruneModalState({ isOpen: false, items: [] })}
           onConfirm={handleConfirmPrune}

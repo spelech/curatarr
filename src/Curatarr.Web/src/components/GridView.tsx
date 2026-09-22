@@ -8,7 +8,7 @@ interface GridViewProps {
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onToggleProtect: (id: string, isProtected: boolean) => void;
-  onPrune: (item: MediaItem, seasonNum?: number) => void;
+  onPrune: (item: MediaItem, seasonNum?: number, targetConnectionIds?: string[]) => void;
   onOpenDetail: (item: MediaItem) => void;
   hasMore: boolean;
   isLoadingMore: boolean;

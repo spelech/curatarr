@@ -190,4 +190,60 @@ describe('TableView component', () => {
 
     expect(screen.getByText('Breaking Bad (2008)')).toBeDefined();
   });
+
+  it('renders prune menu on multi-instance item and calls onPrune with selected instance', () => {
+    const onPrune = vi.fn();
+    const multiItem: MediaItem = {
+      ...mockItems[0],
+      id: 'item-multi',
+      instances: [
+        {
+          id: 'inst-hd',
+          mediaItemId: 'item-multi',
+          connectionId: 'conn-1',
+          externalId: 10,
+          cutoffUnmet: false,
+          isMonitored: true,
+          sizeBytes: 15 * 1024 * 1024 * 1024,
+          hasFile: true,
+          resolution: '1080p',
+          qualityProfileName: 'HD-1080p',
+        },
+        {
+          id: 'inst-4k',
+          mediaItemId: 'item-multi',
+          connectionId: 'conn-2',
+          externalId: 20,
+          cutoffUnmet: false,
+          isMonitored: true,
+          sizeBytes: 30 * 1024 * 1024 * 1024,
+          hasFile: true,
+          resolution: '4K',
+          qualityProfileName: '4K-UHD',
+        },
+      ],
+    };
+
+    render(
+      <TableView
+        items={[multiItem]}
+        selectedIds={new Set<string>()}
+        onToggleSelect={vi.fn()}
+        onToggleProtect={vi.fn()}
+        onPrune={onPrune}
+        onOpenDetail={vi.fn()}
+      />
+    );
+
+    const pruneBtn = screen.getByTitle('Prune');
+    fireEvent.click(pruneBtn);
+
+    expect(screen.getByText('Select Copy to Prune')).toBeDefined();
+    expect(screen.getByText('Prune All Copies')).toBeDefined();
+
+    const hdOption = screen.getByText('HD-1080p');
+    fireEvent.click(hdOption);
+
+    expect(onPrune).toHaveBeenCalledWith(multiItem, undefined, ['conn-1']);
+  });
 });

@@ -223,4 +223,22 @@ describe('MediaDetailModal component', () => {
     fireEvent.click(unprotectBtn);
     expect(onToggleProtect).toHaveBeenCalledWith('s-detail-1', false);
   });
+
+  it('triggers instance-specific prune when Prune Copy button is clicked on an instance card', () => {
+    const onPrune = vi.fn();
+
+    render(
+      <MediaDetailModal
+        item={mockMovie}
+        isOpen={true}
+        onClose={vi.fn()}
+        onToggleProtect={vi.fn()}
+        onPrune={onPrune}
+      />
+    );
+
+    const pruneCopyBtn = screen.getByRole('button', { name: /Prune Copy/i });
+    fireEvent.click(pruneCopyBtn);
+    expect(onPrune).toHaveBeenCalledWith(mockMovie, undefined, ['radarr-4k']);
+  });
 });
