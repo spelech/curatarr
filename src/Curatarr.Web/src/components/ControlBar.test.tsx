@@ -115,4 +115,15 @@ describe('ControlBar component', () => {
     fireEvent.click(deselectBtn);
     expect(useCatalogStore.getState().selectedIds.size).toBe(0);
   });
+
+  it('toggles My Requests filter on button click', () => {
+    render(<ControlBar />);
+    const myReqBtn = screen.getByRole('button', { name: /Filter to my requests/i });
+
+    fireEvent.click(myReqBtn);
+    expect(useCatalogStore.getState().onlyMyRequests).toBe(true);
+
+    fireEvent.click(myReqBtn);
+    expect(useCatalogStore.getState().onlyMyRequests).toBe(false);
+  });
 });

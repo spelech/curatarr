@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-22
+
+### Added
+- **Requester Filter ("My Requests")**:
+  - Control bar toggle to instantly filter the catalog across any active smart category to items requested by the logged-in user in Overseerr / Seerr.
+  - Backend support via `requestedBy` query parameter with case-insensitive username matching.
+- **Smart Category Rules & Criteria Guide**:
+  - Interactive "Rules Guide" modal accessible via info button `(i)` next to Category Tabs displaying human-readable explanations and live threshold values (e.g. min size, watch history age, stale days).
+  - Rich hover tooltips on every category tab showing instant criteria summaries with dynamic thresholds.
+- **Protection Requests Triage & Category**:
+  - Dedicated "Protection Requests" smart category tab displaying items with pending user protection requests.
+  - Admin header badge and notification trigger with pending count.
+  - Admin "Protection Requests Triage" queue modal (`ProtectionRequestsModal`) with poster artwork, requester username, request timestamp, user-submitted reason, and one-click "Approve & Protect" or "Dismiss" actions.
+  - Backend endpoints `GET /protection-requests` and `POST /media/{id}/protection-request/dismiss`.
+
 ## [1.3.2] - 2026-09-21
 
 ### Added

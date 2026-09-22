@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { CategorySummary, MediaItem, TautulliUser } from '../types/api';
+import { CategorySummary, MediaItem, TautulliUser, PendingProtectionRequest } from '../types/api';
+import { useAuthStore } from './useAuthStore';
 
 interface CatalogState {
   items: MediaItem[];
@@ -7,6 +8,7 @@ interface CatalogState {
   users: TautulliUser[];
   selectedCategory: string;
   selectedUserId: string | null;
+  onlyMyRequests: boolean;
   selectedMediaType: 'all' | 'movie' | 'series';
   selectedResolution: string | null;
   selectedCutoffUnmet: boolean | null;
@@ -22,10 +24,14 @@ interface CatalogState {
   pageSize: number;
   isSyncing: boolean;
   prunedNotification: { count: number; bytesFreed: number } | null;
+  pendingProtectionRequests: PendingProtectionRequest[];
+  isProtectionModalOpen: boolean;
+  isCriteriaModalOpen: boolean;
 
   // Actions
   setSelectedCategory: (cat: string) => void;
   setSelectedUserId: (userId: string | null) => void;
+  setOnlyMyRequests: (only: boolean) => void;
   setSelectedMediaType: (type: 'all' | 'movie' | 'series') => void;
   setSelectedResolution: (resolution: string | null) => void;
   setSelectedCutoffUnmet: (cutoff: boolean | null) => void;
@@ -39,6 +45,8 @@ interface CatalogState {
   selectAll: () => void;
   clearSelection: () => void;
   clearPrunedNotification: () => void;
+  setIsProtectionModalOpen: (open: boolean) => void;
+  setIsCriteriaModalOpen: (open: boolean) => void;
 
   fetchCategories: () => Promise<void>;
   fetchUsers: () => Promise<void>;
@@ -49,6 +57,9 @@ interface CatalogState {
   requestProtection: (mediaItemId: string, reason?: string) => Promise<boolean>;
   removeProtectionRequest: (mediaItemId: string) => Promise<boolean>;
   clearProtectionRequests: (mediaItemId: string) => Promise<boolean>;
+  fetchPendingProtectionRequests: () => Promise<void>;
+  approveProtectionRequest: (mediaItemId: string, reason?: string) => Promise<boolean>;
+  dismissProtectionRequest: (mediaItemId: string) => Promise<boolean>;
   triggerSync: () => Promise<void>;
   refreshPlex: () => Promise<{ success: boolean; message: string }>;
   executePrune: (params: { mediaItemId: string; seasonNumber?: number; targetConnectionIds: string[]; addImportExclusion: boolean }) => Promise<{ success: boolean; message: string; bytesFreed: number }>;
@@ -60,6 +71,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   users: [],
   selectedCategory: 'never_watched',
   selectedUserId: null,
+  onlyMyRequests: false,
   selectedMediaType: 'all',
   selectedResolution: null,
   selectedCutoffUnmet: null,
@@ -75,6 +87,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   pageSize: 50,
   isSyncing: false,
   prunedNotification: null,
+  pendingProtectionRequests: [],
+  isProtectionModalOpen: false,
+  isCriteriaModalOpen: false,
 
   setSelectedCategory: (cat) => {
     set({ selectedCategory: cat, selectedIds: new Set() });
@@ -86,6 +101,14 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     get().fetchCategories();
     get().fetchItems();
   },
+
+  setOnlyMyRequests: (only) => {
+    set({ onlyMyRequests: only, selectedIds: new Set() });
+    get().fetchItems();
+  },
+
+  setIsProtectionModalOpen: (open) => set({ isProtectionModalOpen: open }),
+  setIsCriteriaModalOpen: (open) => set({ isCriteriaModalOpen: open }),
 
   setSelectedMediaType: (type) => {
     set({ selectedMediaType: type, selectedIds: new Set() });
@@ -159,6 +182,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         const data = await res.json();
         set({ categories: data });
       }
+      get().fetchPendingProtectionRequests();
     } catch {
       // Ignore in mock/offline
     }
@@ -179,10 +203,23 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   fetchItems: async () => {
     set({ isLoading: true, hasMore: true });
     try {
-      const { selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc, pageSize } = get();
+      const { selectedCategory, selectedUserId, onlyMyRequests, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc, pageSize } = get();
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedUserId) params.set('userId', selectedUserId);
+      if (onlyMyRequests) {
+        let requester = '';
+        if (selectedUserId) {
+          const u = get().users.find((user) => user.userId === selectedUserId);
+          requester = u?.username || '';
+        }
+        if (!requester) {
+          requester = useAuthStore.getState().user?.username || '';
+        }
+        if (requester) {
+          params.set('requestedBy', requester);
+        }
+      }
       if (selectedMediaType !== 'all') params.set('mediaType', selectedMediaType);
       if (selectedResolution) params.set('resolution', selectedResolution);
       if (selectedCutoffUnmet !== null) params.set('cutoffUnmet', selectedCutoffUnmet.toString());
@@ -210,7 +247,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { hasMore, isLoading, isLoadingMore, items, pageSize, selectedCategory, selectedUserId, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc } = get();
+    const { hasMore, isLoading, isLoadingMore, items, pageSize, selectedCategory, selectedUserId, onlyMyRequests, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc } = get();
     if (!hasMore || isLoading || isLoadingMore) return;
 
     set({ isLoadingMore: true });
@@ -218,6 +255,19 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedUserId) params.set('userId', selectedUserId);
+      if (onlyMyRequests) {
+        let requester = '';
+        if (selectedUserId) {
+          const u = get().users.find((user) => user.userId === selectedUserId);
+          requester = u?.username || '';
+        }
+        if (!requester) {
+          requester = useAuthStore.getState().user?.username || '';
+        }
+        if (requester) {
+          params.set('requestedBy', requester);
+        }
+      }
       if (selectedMediaType !== 'all') params.set('mediaType', selectedMediaType);
       if (selectedResolution) params.set('resolution', selectedResolution);
       if (selectedCutoffUnmet !== null) params.set('cutoffUnmet', selectedCutoffUnmet.toString());
@@ -325,6 +375,47 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         return true;
       }
       return false;
+    } catch {
+      return false;
+    }
+  },
+
+  fetchPendingProtectionRequests: async () => {
+    try {
+      const res = await fetch('/api/v1/protection-requests');
+      if (res.ok) {
+        const data: PendingProtectionRequest[] = await res.json();
+        set({ pendingProtectionRequests: data });
+      }
+    } catch {
+      // Ignore in mock/offline
+    }
+  },
+
+  approveProtectionRequest: async (mediaItemId: string, reason?: string) => {
+    try {
+      await get().toggleProtect(mediaItemId, true, reason);
+      await get().clearProtectionRequests(mediaItemId);
+      set((state) => ({
+        pendingProtectionRequests: state.pendingProtectionRequests.filter((r) => r.mediaItemId !== mediaItemId),
+      }));
+      get().fetchCategories();
+      get().fetchItems();
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  dismissProtectionRequest: async (mediaItemId: string) => {
+    try {
+      await get().clearProtectionRequests(mediaItemId);
+      set((state) => ({
+        pendingProtectionRequests: state.pendingProtectionRequests.filter((r) => r.mediaItemId !== mediaItemId),
+      }));
+      get().fetchCategories();
+      get().fetchItems();
+      return true;
     } catch {
       return false;
     }

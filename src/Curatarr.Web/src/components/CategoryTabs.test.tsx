@@ -58,4 +58,33 @@ describe('CategoryTabs component', () => {
 
     expect(useCatalogStore.getState().selectedCategory).toBe('all');
   });
+
+  it('opens criteria modal when Rules Guide button is clicked', () => {
+    render(<CategoryTabs />);
+
+    const guideBtn = screen.getByRole('button', { name: /Category criteria guide/i });
+    fireEvent.click(guideBtn);
+
+    expect(useCatalogStore.getState().isCriteriaModalOpen).toBe(true);
+  });
+
+  it('renders protection_requested category with violet badge and tooltip', () => {
+    useCatalogStore.setState({
+      categories: [
+        {
+          categoryId: 'protection_requested',
+          name: 'Protection Requests',
+          count: 3,
+          reclaimableSizeBytes: 45 * 1024 * 1024 * 1024,
+        },
+      ],
+    });
+
+    render(<CategoryTabs />);
+
+    expect(screen.getByText('Protection Requests')).toBeDefined();
+    expect(screen.getByText('3')).toBeDefined();
+    const btn = screen.getByText('Protection Requests').closest('button');
+    expect(btn?.title).toContain('Items requested by shared library users');
+  });
 });
