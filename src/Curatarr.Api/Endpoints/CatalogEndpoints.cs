@@ -16,7 +16,7 @@ public static class CatalogEndpoints
             var cleanUserId = string.IsNullOrWhiteSpace(userId) ? null : userId;
             var summaries = await engine.GetSummariesAsync(cleanUserId, ct);
             return Results.Ok(summaries);
-        });
+        }).RequireCuratarrRole();
 
         group.MapGet("/catalog", async (
             IMediaRepository repo,
@@ -64,19 +64,71 @@ public static class CatalogEndpoints
 
             var items = await repo.GetPagedAsync(options, ct);
             return Results.Ok(items);
-        });
+        }).RequireCuratarrRole();
 
         group.MapGet("/catalog/{id}", async (IMediaRepository repo, string id, CancellationToken ct) =>
         {
             var item = await repo.GetByIdAsync(id, ct);
             return item != null ? Results.Ok(item) : Results.NotFound();
-        });
+        }).RequireCuratarrRole();
 
         group.MapPost("/protect", async (IMediaRepository repo, ProtectRequest req, CancellationToken ct) =>
         {
             await repo.SetProtectionAsync(req.MediaItemId, req.IsProtected, req.Reason, ct);
             return Results.Ok(new { success = true });
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
+
+        group.MapPost("/protection-requests", async (
+            HttpContext context,
+            IMediaRepository repo,
+            AddProtectionRequest req,
+            CancellationToken ct) =>
+        {
+            var session = context.Items["CuratarrUser"] as UserSession;
+            if (session == null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var protReq = new ProtectionRequest
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                MediaItemId = req.MediaItemId,
+                UserId = session.UserId,
+                Username = session.Username,
+                UserThumb = session.ThumbUrl,
+                Reason = req.Reason,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await repo.AddOrUpdateProtectionRequestAsync(protReq, ct);
+            return Results.Ok(new { success = true });
+        }).RequireCuratarrRole();
+
+        group.MapDelete("/protection-requests/{mediaItemId}", async (
+            HttpContext context,
+            IMediaRepository repo,
+            string mediaItemId,
+            CancellationToken ct) =>
+        {
+            var session = context.Items["CuratarrUser"] as UserSession;
+            if (session == null)
+            {
+                return Results.Unauthorized();
+            }
+
+            await repo.RemoveProtectionRequestAsync(mediaItemId, session.UserId, ct);
+            return Results.Ok(new { success = true });
+        }).RequireCuratarrRole();
+
+        group.MapDelete("/protection-requests/{mediaItemId}/all", async (
+            IMediaRepository repo,
+            string mediaItemId,
+            CancellationToken ct) =>
+        {
+            await repo.ClearProtectionRequestsAsync(mediaItemId, ct);
+            return Results.Ok(new { success = true });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         group.MapGet("/users", async (IConnectionRepository connRepo, ITautulliClient tautulli, CancellationToken ct) =>
         {
@@ -96,15 +148,16 @@ public static class CatalogEndpoints
             {
                 return Results.Ok(Array.Empty<object>());
             }
-        });
+        }).RequireCuratarrRole();
 
         group.MapGet("/stats", async (IMediaRepository repo, CancellationToken ct) =>
         {
             var totalSize = await repo.GetTotalLibrarySizeBytesAsync(ct);
             var totalCount = await repo.GetTotalCountAsync(ct);
             return Results.Ok(new { totalLibrarySizeBytes = totalSize, totalItemCount = totalCount });
-        });
+        }).RequireCuratarrRole();
     }
 
     public record ProtectRequest(string MediaItemId, bool IsProtected, string? Reason);
+    public record AddProtectionRequest(string MediaItemId, string? Reason);
 }

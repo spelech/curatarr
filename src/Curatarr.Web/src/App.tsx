@@ -3,6 +3,7 @@ import { Film } from 'lucide-react';
 import { useCatalogStore } from './stores/useCatalogStore';
 import { useConnectionStore } from './stores/useConnectionStore';
 import { useToastStore } from './stores/useToastStore';
+import { useAuthStore } from './stores/useAuthStore';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ControlBar } from './components/ControlBar';
@@ -13,6 +14,7 @@ import { PruneConfirmModal } from './components/PruneConfirmModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuditLogModal } from './components/AuditLogModal';
 import { MediaDetailModal } from './components/MediaDetailModal';
+import { LoginModal } from './components/LoginModal';
 import { ToastContainer } from './components/ToastContainer';
 import { MediaItem } from './types/api';
 
@@ -33,6 +35,7 @@ export default function App() {
   const fetchCategories = useCatalogStore((state) => state.fetchCategories);
   const fetchUsers = useCatalogStore((state) => state.fetchUsers);
   const fetchItems = useCatalogStore((state) => state.fetchItems);
+  const fetchItemById = useCatalogStore((state) => state.fetchItemById);
   const loadMore = useCatalogStore((state) => state.loadMore);
   const clearSelection = useCatalogStore((state) => state.clearSelection);
   const executePrune = useCatalogStore((state) => state.executePrune);
@@ -40,6 +43,10 @@ export default function App() {
 
   const connections = useConnectionStore((state) => state.connections);
   const fetchConnections = useConnectionStore((state) => state.fetchConnections);
+
+  const user = useAuthStore((state) => state.user);
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+  const isGuest = user?.role === 'Guest';
 
   const addToast = useToastStore((state) => state.addToast);
   const removeToast = useToastStore((state) => state.removeToast);
@@ -57,13 +64,28 @@ export default function App() {
   });
 
   useEffect(() => {
+    checkAuth();
     fetchCategories();
     fetchUsers();
     fetchItems();
     fetchConnections();
-  }, [fetchCategories, fetchUsers, fetchItems, fetchConnections]);
+  }, [checkAuth, fetchCategories, fetchUsers, fetchItems, fetchConnections]);
 
   const selectedItems = items.filter((i) => selectedIds.has(i.id));
+
+  // Open Detail and fetch full item child collections
+  const handleOpenDetail = useCallback(
+    async (item: MediaItem) => {
+      setDetailItem(item);
+      try {
+        const full = await fetchItemById(item.id);
+        setDetailItem(full);
+      } catch {
+        // keep optimistic item
+      }
+    },
+    [fetchItemById]
+  );
 
   // Single Item Prune Trigger
   const handleOpenSinglePrune = useCallback((item: MediaItem, seasonNumber?: number) => {
@@ -175,8 +197,8 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Top Header */}
       <Header
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenAudit={() => setIsAuditOpen(true)}
+        onOpenSettings={() => !isGuest && setIsSettingsOpen(true)}
+        onOpenAudit={() => !isGuest && setIsAuditOpen(true)}
       />
 
       {/* Main App Container */}
@@ -208,7 +230,7 @@ export default function App() {
             onToggleSelect={toggleSelect}
             onToggleProtect={toggleProtect}
             onPrune={handleOpenSinglePrune}
-            onOpenDetail={setDetailItem}
+            onOpenDetail={handleOpenDetail}
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
@@ -220,7 +242,7 @@ export default function App() {
             onToggleSelect={toggleSelect}
             onToggleProtect={toggleProtect}
             onPrune={handleOpenSinglePrune}
-            onOpenDetail={setDetailItem}
+            onOpenDetail={handleOpenDetail}
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
@@ -228,14 +250,16 @@ export default function App() {
         )}
       </main>
 
-      {/* Sticky Batch Action Bar */}
-      <BatchActionBar
-        selectedCount={selectedIds.size}
-        selectedItems={selectedItems}
-        onBatchProtect={handleBatchProtect}
-        onBatchPrune={handleOpenBatchPrune}
-        onClear={clearSelection}
-      />
+      {/* Sticky Batch Action Bar (Admin Only) */}
+      {!isGuest && (
+        <BatchActionBar
+          selectedCount={selectedIds.size}
+          selectedItems={selectedItems}
+          onBatchProtect={handleBatchProtect}
+          onBatchPrune={handleOpenBatchPrune}
+          onClear={clearSelection}
+        />
+      )}
 
       {/* Media Detail Modal */}
       <MediaDetailModal
@@ -255,25 +279,34 @@ export default function App() {
       />
 
       {/* Prune Confirmation Modal */}
-      <PruneConfirmModal
-        items={pruneModalState.items}
-        seasonNumber={pruneModalState.seasonNumber}
-        isOpen={pruneModalState.isOpen}
-        onClose={() => setPruneModalState({ isOpen: false, items: [] })}
-        onConfirm={handleConfirmPrune}
-      />
+      {!isGuest && (
+        <PruneConfirmModal
+          items={pruneModalState.items}
+          seasonNumber={pruneModalState.seasonNumber}
+          isOpen={pruneModalState.isOpen}
+          onClose={() => setPruneModalState({ isOpen: false, items: [] })}
+          onConfirm={handleConfirmPrune}
+        />
+      )}
 
       {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      {!isGuest && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
 
       {/* Forensic Audit Log Modal */}
-      <AuditLogModal
-        isOpen={isAuditOpen}
-        onClose={() => setIsAuditOpen(false)}
-      />
+      {!isGuest && (
+        <AuditLogModal
+          isOpen={isAuditOpen}
+          onClose={() => setIsAuditOpen(false)}
+        />
+      )}
+
+      {/* Plex Auth Login Modal */}
+      <LoginModal />
 
       {/* Toast Notifications */}
       <ToastContainer />

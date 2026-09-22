@@ -17,6 +17,7 @@ public class CatalogSyncService : ICatalogSyncService
     private readonly IRadarrClient _radarrClient;
     private readonly ITautulliClient _tautulliClient;
     private readonly IPlexClient _plexClient;
+    private readonly IOverseerrClient? _overseerrClient;
 
     private readonly SemaphoreSlim _syncLock = new(1, 1);
     private SyncProgress _currentProgress = new("Idle", 0, false, null, null);
@@ -27,7 +28,8 @@ public class CatalogSyncService : ICatalogSyncService
         ISonarrClient sonarrClient,
         IRadarrClient radarrClient,
         ITautulliClient tautulliClient,
-        IPlexClient plexClient)
+        IPlexClient plexClient,
+        IOverseerrClient? overseerrClient = null)
     {
         _connectionRepo = connectionRepo;
         _mediaRepo = mediaRepo;
@@ -35,6 +37,7 @@ public class CatalogSyncService : ICatalogSyncService
         _radarrClient = radarrClient;
         _tautulliClient = tautulliClient;
         _plexClient = plexClient;
+        _overseerrClient = overseerrClient;
     }
 
     public SyncProgress GetCurrentProgress() => _currentProgress;
@@ -498,7 +501,53 @@ public class CatalogSyncService : ICatalogSyncService
                 }
             }
 
-            // 5. Batch upsert everything
+            // 5. Process Overseerr Requests
+            if (_overseerrClient != null)
+            {
+                var overseerrConns = enabledConnections.Where(c => c.ConnectionType == ConnectionType.Overseerr).ToList();
+                foreach (var conn in overseerrConns)
+                {
+                    try
+                    {
+                        var requests = await _overseerrClient.GetRequestsAsync(conn, ct);
+                        foreach (var req in requests)
+                        {
+                            MediaItem? matchedItem = null;
+                            if (req.TmdbId.HasValue && tmdbMap.TryGetValue(req.TmdbId.Value.ToString(), out var byTmdb))
+                            {
+                                matchedItem = byTmdb;
+                            }
+                            else if (req.TvdbId.HasValue && tvdbMap.TryGetValue(req.TvdbId.Value.ToString(), out var byTvdb))
+                            {
+                                matchedItem = byTvdb;
+                            }
+
+                            if (matchedItem != null)
+                            {
+                                if (!string.IsNullOrWhiteSpace(req.RequestedBy))
+                                {
+                                    matchedItem.RequestedBy = req.RequestedBy;
+                                }
+                                if (req.RequestedAt.HasValue)
+                                {
+                                    matchedItem.RequestedAt = req.RequestedAt.Value;
+                                }
+                            }
+                        }
+
+                        conn.LastSyncAt = DateTime.UtcNow;
+                        conn.LastStatus = "Synced";
+                        await _connectionRepo.UpsertAsync(conn, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        conn.LastStatus = $"Error: {ex.Message}";
+                        await _connectionRepo.UpsertAsync(conn, ct);
+                    }
+                }
+            }
+
+            // 6. Batch upsert everything
             var allItems = itemMap.Values.ToList();
             await _mediaRepo.UpsertBatchAsync(allItems, ct);
 

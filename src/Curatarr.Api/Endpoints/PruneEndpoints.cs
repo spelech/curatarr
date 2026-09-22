@@ -29,7 +29,7 @@ public static class PruneAndSyncEndpoints
             }
 
             return result.Success ? Results.Ok(result) : Results.Problem(result.Message);
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         // Audit Logs
         group.MapGet("/audit", async (IAuditRepository repo, int? limit, CancellationToken ct) =>
@@ -37,19 +37,19 @@ public static class PruneAndSyncEndpoints
             var logs = await repo.GetRecentAsync(limit ?? 100, ct);
             var totalFreed = await repo.GetTotalBytesFreedAsync(ct);
             return Results.Ok(new { totalBytesFreed = totalFreed, logs });
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         // Background Sync
         group.MapPost("/sync", (ICatalogSyncService syncService, bool? fullSync) =>
         {
             _ = Task.Run(() => syncService.TriggerSyncAsync(fullSync ?? false, CancellationToken.None));
             return Results.Ok(new { message = "Sync started", progress = syncService.GetCurrentProgress() });
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         group.MapGet("/sync/status", (ICatalogSyncService syncService) =>
         {
             return Results.Ok(syncService.GetCurrentProgress());
-        });
+        }).RequireCuratarrRole();
 
         // Manual Plex Refresh
         group.MapPost("/plex/refresh", async (IConnectionRepository connRepo, IPlexClient plex, CancellationToken ct) =>
@@ -74,7 +74,7 @@ public static class PruneAndSyncEndpoints
             {
                 return Results.Problem($"Failed refreshing Plex: {ex.Message}");
             }
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
     }
 
     public record PruneRequest(

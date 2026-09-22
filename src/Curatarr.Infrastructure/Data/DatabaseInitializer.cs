@@ -53,6 +53,8 @@ public class DatabaseInitializer
             plex_rating_key INTEGER,
             poster_url TEXT,
             added_at TEXT,
+            requested_by TEXT,
+            requested_at TEXT,
             total_size_bytes INTEGER NOT NULL DEFAULT 0,
             is_protected INTEGER NOT NULL DEFAULT 0,
             protection_reason TEXT,
@@ -119,6 +121,27 @@ public class DatabaseInitializer
             updated_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            plex_id TEXT UNIQUE,
+            username TEXT NOT NULL,
+            email TEXT,
+            thumb_url TEXT,
+            role TEXT NOT NULL DEFAULT 'Guest',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS protection_requests (
+            id TEXT PRIMARY KEY,
+            media_item_id TEXT NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL,
+            username TEXT NOT NULL,
+            user_thumb TEXT,
+            reason TEXT,
+            created_at TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(media_type);
         CREATE INDEX IF NOT EXISTS idx_media_protected ON media_items(is_protected);
         CREATE INDEX IF NOT EXISTS idx_media_added ON media_items(added_at);
@@ -128,6 +151,10 @@ public class DatabaseInitializer
         CREATE INDEX IF NOT EXISTS idx_watch_item ON watch_stats(media_item_id);
         CREATE INDEX IF NOT EXISTS idx_watch_user ON watch_stats(user_id);
         CREATE INDEX IF NOT EXISTS idx_audit_date ON audit_logs(executed_at);
+        CREATE INDEX IF NOT EXISTS idx_users_plex_id ON users(plex_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_prot_req_item_user ON protection_requests(media_item_id, user_id);
+        CREATE INDEX IF NOT EXISTS idx_prot_req_item ON protection_requests(media_item_id);
+        CREATE INDEX IF NOT EXISTS idx_prot_req_user ON protection_requests(user_id);
         ";
 
         await connection.ExecuteAsync(schemaSql);
@@ -147,6 +174,23 @@ public class DatabaseInitializer
         if (!columnNames.Contains("resolution"))
         {
             await connection.ExecuteAsync("ALTER TABLE media_instances ADD COLUMN resolution TEXT;");
+        }
+
+        // Migration: Ensure requested_by and requested_at columns exist on existing media_items
+        var mediaColumns = (await connection.QueryAsync<dynamic>("PRAGMA table_info(media_items);")).ToList();
+        var mediaColumnNames = new HashSet<string>(
+            mediaColumns.Select(c => ((IDictionary<string, object>)c)["name"]?.ToString() ?? ""),
+            StringComparer.OrdinalIgnoreCase
+        );
+
+        if (!mediaColumnNames.Contains("requested_by"))
+        {
+            await connection.ExecuteAsync("ALTER TABLE media_items ADD COLUMN requested_by TEXT;");
+        }
+
+        if (!mediaColumnNames.Contains("requested_at"))
+        {
+            await connection.ExecuteAsync("ALTER TABLE media_items ADD COLUMN requested_at TEXT;");
         }
 
         // Deduplicate any historical orphaned duplicates before applying UNIQUE constraints

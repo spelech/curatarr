@@ -99,5 +99,7 @@ public record OverseerrRequestDto(
     string Status,
     string MediaType,
     int? TmdbId,
-    int? TvdbId
+    int? TvdbId,
+    string? RequestedBy = null,
+    DateTime? RequestedAt = null
 );

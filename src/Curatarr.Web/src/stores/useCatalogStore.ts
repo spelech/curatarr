@@ -43,8 +43,12 @@ interface CatalogState {
   fetchCategories: () => Promise<void>;
   fetchUsers: () => Promise<void>;
   fetchItems: () => Promise<void>;
+  fetchItemById: (id: string) => Promise<MediaItem | null>;
   loadMore: () => Promise<void>;
   toggleProtect: (mediaItemId: string, isProtected: boolean, reason?: string) => Promise<void>;
+  requestProtection: (mediaItemId: string, reason?: string) => Promise<boolean>;
+  removeProtectionRequest: (mediaItemId: string) => Promise<boolean>;
+  clearProtectionRequests: (mediaItemId: string) => Promise<boolean>;
   triggerSync: () => Promise<void>;
   refreshPlex: () => Promise<{ success: boolean; message: string }>;
   executePrune: (params: { mediaItemId: string; seasonNumber?: number; targetConnectionIds: string[]; addImportExclusion: boolean }) => Promise<{ success: boolean; message: string; bytesFreed: number }>;
@@ -260,6 +264,69 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       }
     } catch {
       // Ignore
+    }
+  },
+
+  fetchItemById: async (id: string) => {
+    try {
+      const res = await fetch(`/api/v1/catalog/${id}`);
+      if (res.ok) {
+        const item: MediaItem = await res.json();
+        set((state) => ({
+          items: state.items.map((i) => (i.id === id ? item : i)),
+        }));
+        return item;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  requestProtection: async (mediaItemId: string, reason?: string) => {
+    try {
+      const res = await fetch('/api/v1/protection-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaItemId, reason }),
+      });
+      if (res.ok) {
+        await get().fetchItemById(mediaItemId);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
+  removeProtectionRequest: async (mediaItemId: string) => {
+    try {
+      const res = await fetch(`/api/v1/protection-requests/${mediaItemId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await get().fetchItemById(mediaItemId);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
+  clearProtectionRequests: async (mediaItemId: string) => {
+    try {
+      const res = await fetch(`/api/v1/protection-requests/${mediaItemId}/all`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await get().fetchItemById(mediaItemId);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
   },
 

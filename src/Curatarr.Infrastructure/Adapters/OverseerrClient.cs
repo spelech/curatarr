@@ -47,7 +47,29 @@ public class OverseerrClient : IOverseerrClient
                     if (media.TryGetProperty("tvdbId", out var tvid) && tvid.ValueKind == JsonValueKind.Number) tvdbId = tvid.GetInt32();
                 }
 
-                list.Add(new OverseerrRequestDto(id, status, type, tmdbId, tvdbId));
+                DateTime? requestedAt = null;
+                if (el.TryGetProperty("createdAt", out var caProp) && caProp.ValueKind == JsonValueKind.String)
+                {
+                    if (DateTime.TryParse(caProp.GetString(), out var dt))
+                    {
+                        requestedAt = dt.ToUniversalTime();
+                    }
+                }
+
+                string? requestedBy = null;
+                if (el.TryGetProperty("requestedBy", out var rb) && rb.ValueKind == JsonValueKind.Object)
+                {
+                    if (rb.TryGetProperty("displayName", out var dn) && !string.IsNullOrWhiteSpace(dn.GetString()))
+                        requestedBy = dn.GetString();
+                    else if (rb.TryGetProperty("plexUsername", out var pu) && !string.IsNullOrWhiteSpace(pu.GetString()))
+                        requestedBy = pu.GetString();
+                    else if (rb.TryGetProperty("username", out var un) && !string.IsNullOrWhiteSpace(un.GetString()))
+                        requestedBy = un.GetString();
+                    else if (rb.TryGetProperty("email", out var em) && !string.IsNullOrWhiteSpace(em.GetString()))
+                        requestedBy = em.GetString();
+                }
+
+                list.Add(new OverseerrRequestDto(id, status, type, tmdbId, tvdbId, requestedBy, requestedAt));
             }
         }
 

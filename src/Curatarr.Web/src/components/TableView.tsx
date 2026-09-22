@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Film, Tv, Shield, Trash2, History } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { getInstanceBadge, itemPredatesWatchHistory } from '../utils/badgeUtils';
+import { useAuthStore } from '../stores/useAuthStore';
 
 interface TableViewProps {
   items: MediaItem[];
@@ -40,6 +41,8 @@ const TableRow = React.memo<TableRowProps>(
     getLastPlayed,
     formatDate,
   }) => {
+    const user = useAuthStore((s) => s.user);
+    const isGuest = user?.role === 'Guest';
     const totalPlays = item.watchStats.reduce((sum, w) => sum + w.playCount, 0);
 
     return (
@@ -49,12 +52,14 @@ const TableRow = React.memo<TableRowProps>(
         } ${item.isProtected ? 'bg-emerald-950/10' : ''}`}
       >
         <td className="p-3 overflow-hidden text-center">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onToggleSelect(item.id)}
-            className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-600 cursor-pointer"
-          />
+          {!isGuest && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onToggleSelect(item.id)}
+              className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-600 cursor-pointer"
+            />
+          )}
         </td>
         <td className="p-3 font-semibold text-white overflow-hidden">
           <div
@@ -85,6 +90,16 @@ const TableRow = React.memo<TableRowProps>(
                   >
                     <History className="w-2.5 h-2.5" />
                     Pre-2017
+                  </span>
+                )}
+                {(item.protectionRequestCount ?? 0) > 0 && (
+                  <span
+                    data-testid="protection-request-count-badge"
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/40 flex items-center gap-0.5 shrink-0"
+                    title={`${item.protectionRequestCount} user${(item.protectionRequestCount ?? 0) > 1 ? 's' : ''} asked to protect this item`}
+                  >
+                    <Shield className="w-2.5 h-2.5 text-violet-400" />
+                    <span>{item.protectionRequestCount}</span>
                   </span>
                 )}
               </div>
@@ -129,24 +144,42 @@ const TableRow = React.memo<TableRowProps>(
         <td className="p-3 text-right overflow-hidden whitespace-nowrap">
           <div className="flex items-center justify-end gap-1.5">
             <button
-              onClick={() => onToggleProtect(item.id, !item.isProtected)}
+              onClick={() => {
+                if (isGuest) {
+                  onOpenDetail(item);
+                } else {
+                  onToggleProtect(item.id, !item.isProtected);
+                }
+              }}
               className={`p-1.5 rounded transition min-w-[28px] min-h-[28px] flex items-center justify-center ${
-                item.isProtected ? 'text-emerald-300 bg-emerald-500/20' : 'text-slate-500 hover:text-slate-300'
+                item.isProtected
+                  ? 'text-emerald-300 bg-emerald-500/20'
+                  : (item.protectionRequestCount ?? 0) > 0
+                  ? 'text-violet-300 bg-violet-500/20'
+                  : 'text-slate-500 hover:text-slate-300'
               }`}
-              title={item.isProtected ? 'Protected' : 'Protect'}
+              title={
+                item.isProtected
+                  ? 'Protected'
+                  : isGuest
+                  ? 'View protection requests / Ask to protect'
+                  : 'Protect'
+              }
               aria-label={item.isProtected ? 'Protected' : 'Protect'}
             >
               <Shield className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={() => onPrune(item)}
-              disabled={item.isProtected}
-              className="p-1.5 rounded text-slate-500 hover:text-red-400 disabled:opacity-25 transition min-w-[28px] min-h-[28px] flex items-center justify-center"
-              title="Prune"
-              aria-label="Prune"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {!isGuest && (
+              <button
+                onClick={() => onPrune(item)}
+                disabled={item.isProtected}
+                className="p-1.5 rounded text-slate-500 hover:text-red-400 disabled:opacity-25 transition min-w-[28px] min-h-[28px] flex items-center justify-center"
+                title="Prune"
+                aria-label="Prune"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </td>
       </tr>

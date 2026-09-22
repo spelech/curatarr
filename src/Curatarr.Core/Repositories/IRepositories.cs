@@ -36,6 +36,10 @@ public interface IMediaRepository
     Task DeleteMediaItemAsync(string id, CancellationToken ct = default);
     Task<long> GetTotalLibrarySizeBytesAsync(CancellationToken ct = default);
     Task<int> GetTotalCountAsync(CancellationToken ct = default);
+    Task AddOrUpdateProtectionRequestAsync(ProtectionRequest req, CancellationToken ct = default);
+    Task RemoveProtectionRequestAsync(string mediaItemId, string userId, CancellationToken ct = default);
+    Task<IReadOnlyList<ProtectionRequest>> GetProtectionRequestsAsync(string mediaItemId, CancellationToken ct = default);
+    Task ClearProtectionRequestsAsync(string mediaItemId, CancellationToken ct = default);
 }
 
 public interface IAuditRepository

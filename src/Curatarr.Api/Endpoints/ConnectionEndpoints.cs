@@ -14,7 +14,7 @@ public static class ConnectionEndpoints
         {
             var connections = await repo.GetAllAsync(ct);
             return Results.Ok(connections);
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         group.MapPost("/", async (IConnectionRepository repo, ServiceConnection connection, CancellationToken ct) =>
         {
@@ -25,18 +25,18 @@ public static class ConnectionEndpoints
             connection.UpdatedAt = DateTime.UtcNow;
             await repo.UpsertAsync(connection, ct);
             return Results.Ok(connection);
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         group.MapDelete("/{id}", async (IConnectionRepository repo, string id, CancellationToken ct) =>
         {
             await repo.DeleteAsync(id, ct);
             return Results.Ok(new { success = true });
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
 
         group.MapPost("/test", async (IConnectionTester tester, ServiceConnection connection, CancellationToken ct) =>
         {
             var result = await tester.TestAsync(connection, ct);
             return Results.Ok(result);
-        });
+        }).RequireCuratarrRole(UserRole.Admin);
     }
 }
