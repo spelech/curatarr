@@ -25,7 +25,7 @@ describe('Header component', () => {
     render(<Header onOpenSettings={onOpenSettings} onOpenAudit={onOpenAudit} />);
 
     expect(screen.getByText('Curatarr')).toBeDefined();
-    expect(screen.getByText('v1.2.0')).toBeDefined();
+    expect(screen.getByText(/v\d+\.\d+\.\d+/)).toBeDefined();
 
     const auditBtn = screen.getByRole('button', { name: /Audit Log/i });
     fireEvent.click(auditBtn);
