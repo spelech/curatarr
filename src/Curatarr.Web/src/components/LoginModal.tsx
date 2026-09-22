@@ -68,16 +68,21 @@ export const LoginModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="login-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+    >
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 flex flex-col items-center text-center">
         {/* Logo / Badge */}
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/10 border border-amber-500/30 flex items-center justify-center mb-6 shadow-inner">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-6 shadow-inner">
           <svg className="w-9 h-9 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
           </svg>
         </div>
 
-        <h2 className="text-2xl font-bold tracking-tight text-white mb-2">
+        <h2 id="login-modal-title" className="text-2xl font-bold tracking-tight text-white mb-2">
           {isInitialized ? 'Sign in to Curatarr' : 'Welcome to Curatarr'}
         </h2>
 
@@ -103,8 +108,8 @@ export const LoginModal: React.FC = () => {
               <span>{pollStatus || 'Awaiting Authorization...'}</span>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Complete the prompt in the Plex window. PIN code: <span className="font-mono text-slate-300 font-semibold">{activePin.code}</span>
+            <p className="text-xs text-slate-400">
+              Complete the prompt in the Plex window. PIN code: <span className="font-mono text-slate-200 font-semibold">{activePin.code}</span>
             </p>
 
             <a
@@ -129,7 +134,7 @@ export const LoginModal: React.FC = () => {
             <button
               type="button"
               onClick={handleSignInClick}
-              className="w-full flex items-center justify-center space-x-3 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-semibold text-sm shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+              className="w-full flex items-center justify-center space-x-3 py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
             >
               {/* Plex chevron icon */}
               <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -138,7 +143,7 @@ export const LoginModal: React.FC = () => {
               <span>Sign in with Plex</span>
             </button>
 
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-400">
               Uses official Plex PIN authentication. No passwords are treated or stored by Curatarr.
             </p>
           </div>

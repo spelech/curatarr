@@ -2,6 +2,19 @@ import { test, expect } from '@spelech/playwright-layout-inspector/fixture';
 
 test.describe('Curatarr Layout & Responsive UX Audits', () => {
   test('should pass comprehensive layout audit with zero overflow and mobile fit', async ({ page, layoutInspector: _ }) => {
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          authenticated: true,
+          initialized: true,
+          authEnabled: true,
+          user: { id: 'admin', username: 'admin', role: 'Admin' },
+        }),
+      });
+    });
+
     await page.goto('/');
 
     // 1. Assert zero horizontal overflow / canvas bleed
