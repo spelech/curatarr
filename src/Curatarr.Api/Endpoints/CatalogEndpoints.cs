@@ -23,6 +23,7 @@ public static class CatalogEndpoints
             ISettingsRepository settingsRepo,
             string? category,
             string? userId,
+            string? requestedBy,
             string? mediaType,
             string? search,
             string? resolution,
@@ -48,9 +49,11 @@ public static class CatalogEndpoints
             var effectiveOffset = Math.Max(0, offset ?? 0);
 
             var cleanUserId = string.IsNullOrWhiteSpace(userId) ? null : userId;
+            var cleanRequestedBy = string.IsNullOrWhiteSpace(requestedBy) ? null : requestedBy;
             var options = new MediaFilterOptions(
                 CategoryId: category,
                 UserIdFilter: cleanUserId,
+                RequestedByFilter: cleanRequestedBy,
                 MediaTypeFilter: mType,
                 SearchQuery: search,
                 ResolutionFilter: resolution,
@@ -128,6 +131,14 @@ public static class CatalogEndpoints
         {
             await repo.ClearProtectionRequestsAsync(mediaItemId, ct);
             return Results.Ok(new { success = true });
+        }).RequireCuratarrRole(UserRole.Admin);
+
+        group.MapGet("/protection-requests", async (
+            IMediaRepository repo,
+            CancellationToken ct) =>
+        {
+            var requests = await repo.GetAllProtectionRequestsAsync(ct);
+            return Results.Ok(requests);
         }).RequireCuratarrRole(UserRole.Admin);
 
         group.MapGet("/users", async (IConnectionRepository connRepo, ITautulliClient tautulli, CancellationToken ct) =>

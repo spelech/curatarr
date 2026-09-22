@@ -667,6 +667,31 @@ public class PersistenceTests : IDisposable
         var pre2017All = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "all"));
         pre2017All.Count.Should().BeGreaterOrEqualTo(2);
 
+        // RequestedBy filter (case-insensitive)
+        itemA.RequestedBy = "spelech";
+        await repo.UpsertBatchAsync([itemA]);
+        var reqSpelech = await repo.GetPagedAsync(new MediaFilterOptions(RequestedByFilter: "SPELECH"));
+        reqSpelech.Should().ContainSingle(i => i.Id == "sort-a");
+
+        var reqOther = await repo.GetPagedAsync(new MediaFilterOptions(RequestedByFilter: "non_existent_requester"));
+        reqOther.Should().BeEmpty();
+
+        // Protection requests queue & category
+        await repo.AddOrUpdateProtectionRequestAsync(new ProtectionRequest
+        {
+            Id = "req-1",
+            MediaItemId = "sort-b",
+            UserId = "user-alice",
+            Username = "Alice",
+            Reason = "Must keep!"
+        });
+
+        var protReqCategory = await repo.GetPagedAsync(new MediaFilterOptions(CategoryId: SmartCategoryIds.ProtectionRequested));
+        protReqCategory.Should().ContainSingle(i => i.Id == "sort-b");
+
+        var allPending = await repo.GetAllProtectionRequestsAsync();
+        allPending.Should().ContainSingle(r => r.MediaItemId == "sort-b" && r.Username == "Alice" && r.Title == "Beta");
+
         // Empty result branch
         var emptyRes = await repo.GetPagedAsync(new MediaFilterOptions(SearchQuery: "NonExistentItemXYZ123"));
         emptyRes.Should().BeEmpty();

@@ -263,6 +263,54 @@ public class CatalogEndpointsTests : IClassFixture<WebApplicationFactory<Program
         errorList.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task CatalogEndpoints_RequestedByAndProtectionRequests_ShouldWork()
+    {
+        await SeedCatalogAsync();
+        var client = _factory.CreateClient();
+
+        using var scope = _factory.Services.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IMediaRepository>();
+
+        var testItem = new MediaItem
+        {
+            Id = "req-test-item-1",
+            MediaType = MediaType.Movie,
+            Title = "Requester Test Movie",
+            SortTitle = "Requester Test Movie",
+            RequestedBy = "spelech",
+            TotalSizeBytes = 5000000000
+        };
+        await repo.UpsertBatchAsync([testItem]);
+
+        await repo.AddOrUpdateProtectionRequestAsync(new ProtectionRequest
+        {
+            Id = "pr-test-1",
+            MediaItemId = testItem.Id,
+            UserId = "user-1",
+            Username = "spelech",
+            Reason = "Save this movie"
+        });
+
+        // Query catalog with requestedBy filter
+        var reqRes = await client.GetAsync("/api/v1/catalog?requestedBy=spelech");
+        reqRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var reqList = await reqRes.Content.ReadFromJsonAsync<List<MediaItem>>();
+        reqList.Should().Contain(i => i.Id == "req-test-item-1");
+
+        // Query catalog with category=protection_requested
+        var protCatRes = await client.GetAsync("/api/v1/catalog?category=protection_requested");
+        protCatRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var protCatList = await protCatRes.Content.ReadFromJsonAsync<List<MediaItem>>();
+        protCatList.Should().Contain(i => i.Id == "req-test-item-1");
+
+        // Query GET /api/v1/protection-requests
+        var protListRes = await client.GetAsync("/api/v1/protection-requests");
+        protListRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var protRequests = await protListRes.Content.ReadFromJsonAsync<List<PendingProtectionRequestDto>>();
+        protRequests.Should().Contain(p => p.MediaItemId == "req-test-item-1" && p.Username == "spelech");
+    }
+
     public record StatsResponse(long totalLibrarySizeBytes, int totalItemCount);
 }
 
