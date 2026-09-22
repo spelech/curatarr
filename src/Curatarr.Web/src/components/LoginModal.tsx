@@ -109,7 +109,7 @@ export const LoginModal: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-400">
-              Complete the prompt in the Plex window. PIN code: <span className="font-mono text-slate-200 font-semibold">{activePin.code}</span>
+              Complete authorization in the Plex window.
             </p>
 
             <a
