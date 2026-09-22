@@ -26,7 +26,7 @@ interface MediaDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onToggleProtect: (mediaItemId: string, isProtected: boolean, reason?: string) => void;
-  onPrune: (item: MediaItem, seasonNumber?: number) => void;
+  onPrune: (item: MediaItem, seasonNumber?: number, targetConnectionIds?: string[]) => void;
 }
 
 export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
@@ -431,7 +431,20 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="font-mono text-slate-300">{formatSize(inst.sizeBytes)}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="font-mono text-slate-300">{formatSize(inst.sizeBytes)}</div>
+                      {!isGuest && (
+                        <button
+                          onClick={() => onPrune(currentItem, undefined, [inst.connectionId])}
+                          disabled={currentItem.isProtected}
+                          title={currentItem.isProtected ? 'Item is protected' : `Prune only this ${inst.resolution || ''} copy`}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 hover:border-red-500/50 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Prune Copy</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">

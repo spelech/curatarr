@@ -155,4 +155,63 @@ describe('MediaCard component', () => {
     fireEvent.click(pruneSeasonBtn);
     expect(onPrune).toHaveBeenCalledWith(mockSeries, 1);
   });
+
+  it('renders multi-instance prune dropdown and triggers specific instance pruning', () => {
+    const onPrune = vi.fn();
+    const multiInstanceMovie: MediaItem = {
+      ...mockMovie,
+      id: 'movie-multi',
+      instances: [
+        {
+          id: 'inst-hd',
+          mediaItemId: 'movie-multi',
+          connectionId: 'conn-radarr-hd',
+          externalId: 101,
+          cutoffUnmet: false,
+          isMonitored: true,
+          sizeBytes: 10 * 1024 * 1024 * 1024,
+          hasFile: true,
+          resolution: '1080p',
+          qualityProfileName: 'HD-1080p',
+        },
+        {
+          id: 'inst-4k',
+          mediaItemId: 'movie-multi',
+          connectionId: 'conn-radarr-4k',
+          externalId: 102,
+          cutoffUnmet: false,
+          isMonitored: true,
+          sizeBytes: 25 * 1024 * 1024 * 1024,
+          hasFile: true,
+          resolution: '4K',
+          qualityProfileName: 'Ultra-HD',
+        },
+      ],
+    };
+
+    render(
+      <MediaCard
+        item={multiInstanceMovie}
+        isSelected={false}
+        onToggleSelect={vi.fn()}
+        onToggleProtect={vi.fn()}
+        onPrune={onPrune}
+        onOpenDetail={vi.fn()}
+      />
+    );
+
+    // Clicking prune button should open the dropdown menu
+    const pruneBtn = screen.getByTitle(/Choose copy to prune/i);
+    fireEvent.click(pruneBtn);
+
+    expect(screen.getByText('Select Copy to Prune')).toBeDefined();
+    expect(screen.getByText('Prune All Copies')).toBeDefined();
+    expect(screen.getByText('HD-1080p')).toBeDefined();
+    expect(screen.getByText('Ultra-HD')).toBeDefined();
+
+    // Clicking specific 4K instance
+    const fourKOption = screen.getByText('Ultra-HD');
+    fireEvent.click(fourKOption);
+    expect(onPrune).toHaveBeenCalledWith(multiInstanceMovie, undefined, ['conn-radarr-4k']);
+  });
 });

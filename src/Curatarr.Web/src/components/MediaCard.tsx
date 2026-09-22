@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Film, Tv, Shield, Trash2, ChevronDown, ChevronUp, Eye, History } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { SeasonDrawer } from './SeasonDrawer';
-import { getItemBadges, itemPredatesWatchHistory } from '../utils/badgeUtils';
+import { getItemBadges, itemPredatesWatchHistory, getBadgeStyle } from '../utils/badgeUtils';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useConnectionStore } from '../stores/useConnectionStore';
 
 interface MediaCardProps {
   item: MediaItem;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
   onToggleProtect: (id: string, isProtected: boolean) => void;
-  onPrune: (item: MediaItem, seasonNumber?: number) => void;
+  onPrune: (item: MediaItem, seasonNumber?: number, targetConnectionIds?: string[]) => void;
   onOpenDetail: (item: MediaItem) => void;
 }
 
@@ -27,6 +28,20 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
   const isGuest = user?.role === 'Guest' || isPreviewingAsGuest;
   const [isExpanded, setIsExpanded] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const connections = useConnectionStore((s) => s.connections);
+  const [showPruneMenu, setShowPruneMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPruneMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowPruneMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPruneMenu]);
 
   const formatSize = (bytes: number) => {
     const gb = bytes / (1024 * 1024 * 1024);
@@ -159,17 +174,81 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                 <Shield className="w-3 h-3" />
               </button>
               {!isGuest && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onPrune(item);
-                  }}
-                  disabled={item.isProtected}
-                  title={item.isProtected ? 'Item is protected' : 'Prune item'}
-                  className="p-1 rounded backdrop-blur-sm shadow bg-slate-900/80 text-slate-400 hover:text-red-400 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                <div className="relative pointer-events-auto">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.instances && item.instances.length > 1) {
+                        setShowPruneMenu((prev) => !prev);
+                      } else {
+                        onPrune(item);
+                      }
+                    }}
+                    disabled={item.isProtected}
+                    title={
+                      item.isProtected
+                        ? 'Item is protected'
+                        : item.instances && item.instances.length > 1
+                        ? 'Choose copy to prune (4K / HD)'
+                        : 'Prune item'
+                    }
+                    className="p-1 rounded backdrop-blur-sm shadow bg-slate-900/80 text-slate-400 hover:text-red-400 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-0.5"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+
+                  {/* Multi-instance quick prune dropdown */}
+                  {showPruneMenu && (
+                    <div
+                      ref={menuRef}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-0 top-full mt-1 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-30 text-left space-y-1 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                        Select Copy to Prune
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowPruneMenu(false);
+                          onPrune(item);
+                        }}
+                        className="w-full px-2 py-1.5 rounded-lg text-xs hover:bg-red-500/20 text-red-300 flex items-center justify-between transition"
+                      >
+                        <span>Prune All Copies</span>
+                        <span className="font-mono text-[10px] text-slate-400">
+                          {formatSize(item.totalSizeBytes)}
+                        </span>
+                      </button>
+                      <div className="h-px bg-slate-800 my-0.5" />
+                      {item.instances.map((inst) => {
+                        const conn = connections.find((c) => c.id === inst.connectionId);
+                        const name = conn?.name || inst.qualityProfileName || inst.resolution || 'Arr';
+                        return (
+                          <button
+                            key={inst.id}
+                            onClick={() => {
+                              setShowPruneMenu(false);
+                              onPrune(item, undefined, [inst.connectionId]);
+                            }}
+                            className="w-full px-2 py-1.5 rounded-lg text-xs hover:bg-slate-800 text-slate-200 flex items-center justify-between transition"
+                          >
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className="truncate">{name}</span>
+                              {inst.resolution && (
+                                <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${getBadgeStyle(inst.resolution, false)}`}>
+                                  {inst.resolution}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-mono text-[10px] text-slate-400 shrink-0 ml-1.5">
+                              {formatSize(inst.sizeBytes)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
