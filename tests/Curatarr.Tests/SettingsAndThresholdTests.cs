@@ -218,4 +218,144 @@ public class SettingsAndThresholdTests : IDisposable
         neverItems.Should().HaveCount(1);
         neverItems[0].Id.Should().Be("movie-old-unwatched");
     }
+
+    [Fact]
+    public async Task Sub720p_ShouldRespectCutoffYearAndIncludeMultiInstanceItems()
+    {
+        await _initializer.InitializeAsync();
+
+        // 1. Classic movie from 1985 with SD copy (1.5 GB) -> Below cutoff (2000), should NOT be surfaced
+        var classicSdMovie = new MediaItem
+        {
+            Id = "movie-classic-sd",
+            MediaType = MediaType.Movie,
+            Title = "Back to the Future SD",
+            SortTitle = "Back to the Future SD",
+            Year = 1985,
+            TotalSizeBytes = 1500000000L,
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-classic-sd",
+                    MediaItemId = "movie-classic-sd",
+                    ConnectionId = "radarr-1",
+                    ExternalId = 1,
+                    Resolution = "SD",
+                    HasFile = true,
+                    SizeBytes = 1500000000L
+                }
+            ]
+        };
+
+        // 2. Modern movie from 2021 with SD copy (2 GB) -> >= 2000, SHOULD be surfaced
+        var modernSdMovie = new MediaItem
+        {
+            Id = "movie-modern-sd",
+            MediaType = MediaType.Movie,
+            Title = "Modern Film SD",
+            SortTitle = "Modern Film SD",
+            Year = 2021,
+            TotalSizeBytes = 2000000000L,
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-modern-sd",
+                    MediaItemId = "movie-modern-sd",
+                    ConnectionId = "radarr-1",
+                    ExternalId = 2,
+                    Resolution = "SD",
+                    HasFile = true,
+                    SizeBytes = 2000000000L
+                }
+            ]
+        };
+
+        // 3. Modern movie from 2018 with dual instances: 4K (40 GB) AND SD (1.8 GB) -> SHOULD be surfaced, reclaimable size = 1.8 GB
+        var dualInstanceMovie = new MediaItem
+        {
+            Id = "movie-dual-4k-sd",
+            MediaType = MediaType.Movie,
+            Title = "Dual Copy Movie",
+            SortTitle = "Dual Copy Movie",
+            Year = 2018,
+            TotalSizeBytes = 41800000000L,
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-dual-4k",
+                    MediaItemId = "movie-dual-4k-sd",
+                    ConnectionId = "radarr-4k",
+                    ExternalId = 3,
+                    Resolution = "4K",
+                    HasFile = true,
+                    SizeBytes = 40000000000L
+                },
+                new MediaInstance
+                {
+                    Id = "inst-dual-sd",
+                    MediaItemId = "movie-dual-4k-sd",
+                    ConnectionId = "radarr-sd",
+                    ExternalId = 4,
+                    Resolution = "SD",
+                    HasFile = true,
+                    SizeBytes = 1800000000L
+                }
+            ]
+        };
+
+        // 4. Modern movie from 2022 with 1080p only (8 GB) -> Should NOT be in Sub-720p
+        var hdOnlyMovie = new MediaItem
+        {
+            Id = "movie-hd-only",
+            MediaType = MediaType.Movie,
+            Title = "HD Only Movie",
+            SortTitle = "HD Only Movie",
+            Year = 2022,
+            TotalSizeBytes = 8000000000L,
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-hd",
+                    MediaItemId = "movie-hd-only",
+                    ConnectionId = "radarr-1",
+                    ExternalId = 5,
+                    Resolution = "1080p",
+                    HasFile = true,
+                    SizeBytes = 8000000000L
+                }
+            ]
+        };
+
+        await _mediaRepo.UpsertBatchAsync([classicSdMovie, modernSdMovie, dualInstanceMovie, hdOnlyMovie]);
+
+        // Default cutoff year: 2000
+        var summaries = await _categoryEngine.GetSummariesAsync(null);
+        var subSummary = summaries.First(s => s.CategoryId == SmartCategoryIds.Sub720p);
+
+        // Expected: modernSdMovie (2GB) + dualInstanceMovie (1.8GB SD instance) = 2 items, 3.8 GB reclaimable
+        subSummary.Count.Should().Be(2);
+        subSummary.ReclaimableSizeBytes.Should().Be(3800000000L);
+        subSummary.Name.Should().Be("Sub-720p (>=2000)");
+
+        // Verify paged query
+        var subItems = await _mediaRepo.GetPagedAsync(new MediaFilterOptions(CategoryId: SmartCategoryIds.Sub720p));
+        subItems.Should().HaveCount(2);
+        subItems.Select(x => x.Id).Should().Contain(["movie-modern-sd", "movie-dual-4k-sd"]);
+        subItems.Select(x => x.Id).Should().NotContain("movie-classic-sd");
+        subItems.Select(x => x.Id).Should().NotContain("movie-hd-only");
+
+        // Change cutoff year to 0 (all SD included)
+        var settings = await _settingsRepo.GetSettingsAsync();
+        await _settingsRepo.SaveSettingsAsync(settings with { Sub720pCutoffYear = 0 });
+
+        var summariesAll = await _categoryEngine.GetSummariesAsync(null);
+        var subSummaryAll = summariesAll.First(s => s.CategoryId == SmartCategoryIds.Sub720p);
+        subSummaryAll.Count.Should().Be(3);
+        subSummaryAll.ReclaimableSizeBytes.Should().Be(1500000000L + 2000000000L + 1800000000L);
+        subSummaryAll.Name.Should().Be("Sub-720p");
+    }
 }

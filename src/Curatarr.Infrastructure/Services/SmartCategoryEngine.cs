@@ -118,11 +118,26 @@ public class SmartCategoryEngine : ISmartCategoryEngine
 
         var protReq = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlProtReq, cancellationToken: ct));
 
+        // Sub-720p / SD
+        const string sqlSub720p = @"
+            SELECT COUNT(DISTINCT m.id) as Count, COALESCE(SUM(mi.size_bytes), 0) as Size
+            FROM media_items m
+            INNER JOIN media_instances mi ON mi.media_item_id = m.id
+            WHERE m.is_protected = 0
+              AND mi.resolution = 'SD'
+              AND (@Sub720pCutoffYear <= 0 OR m.year IS NULL OR m.year >= @Sub720pCutoffYear);";
+
+        var sub720p = await conn.QuerySingleAsync<(int Count, long Size)>(new CommandDefinition(sqlSub720p, new
+        {
+            Sub720pCutoffYear = settings.Sub720pCutoffYear
+        }, cancellationToken: ct));
+
         return
         [
             new CategoryCountSummary(SmartCategoryIds.NeverWatched, settings.NeverWatchedMinAgeDays > 0 ? $"Never Watched (>{settings.NeverWatchedMinAgeDays}d)" : "Never Watched", never.Count, never.Size),
             new CategoryCountSummary(SmartCategoryIds.Stale, $"Stale (>{settings.StaleDays}d)", stale.Count, stale.Size),
             new CategoryCountSummary(SmartCategoryIds.Abandoned, "Abandoned TV", abandoned.Count, abandoned.Size),
+            new CategoryCountSummary(SmartCategoryIds.Sub720p, settings.Sub720pCutoffYear > 0 ? $"Sub-720p (>={settings.Sub720pCutoffYear})" : "Sub-720p", sub720p.Count, sub720p.Size),
             new CategoryCountSummary(SmartCategoryIds.CutoffUnmet, "Cutoff Unmet", cutoff.Count, cutoff.Size),
             new CategoryCountSummary(SmartCategoryIds.SpaceHogs, "Space Hogs", space.Count, space.Size),
             new CategoryCountSummary(SmartCategoryIds.Missing, "Missing / Stalled", missing.Count, 0),

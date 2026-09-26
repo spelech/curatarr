@@ -161,6 +161,7 @@ export interface CuratarrSettings {
   neverWatchedMinAgeDays: number;
   syncIntervalHours: number;
   catalogBatchSize: number;
+  sub720pCutoffYear?: number;
   movieSpaceHogGb: number;
   movie4kSpaceHogGb: number;
   seriesEpisodeSpaceHogGb: number;
