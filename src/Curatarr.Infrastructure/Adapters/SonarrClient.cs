@@ -235,4 +235,53 @@ public class SonarrClient : ISonarrClient
         using var putRes = await _httpClient.SendAsync(putReq, ct);
         putRes.EnsureSuccessStatusCode();
     }
+
+    public async Task<IReadOnlyList<QualityProfileDto>> GetQualityProfilesAsync(ServiceConnection connection, CancellationToken ct = default)
+    {
+        var baseUrl = connection.BaseUrl.TrimEnd('/');
+        using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/api/v3/qualityprofile", connection.ApiKey);
+        using var res = await _httpClient.SendAsync(req, ct);
+        res.EnsureSuccessStatusCode();
+
+        using var stream = await res.Content.ReadAsStreamAsync(ct);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+        var list = new List<QualityProfileDto>();
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+            var id = el.GetProperty("id").GetInt32();
+            var name = el.GetProperty("name").GetString() ?? $"Profile {id}";
+            list.Add(new QualityProfileDto(id, name));
+        }
+        return list;
+    }
+
+    public async Task<bool> UpdateQualityProfileAsync(ServiceConnection connection, int seriesId, int qualityProfileId, CancellationToken ct = default)
+    {
+        var baseUrl = connection.BaseUrl.TrimEnd('/');
+        using var req = CreateRequest(HttpMethod.Put, $"{baseUrl}/api/v3/series/editor", connection.ApiKey);
+        req.Content = JsonContent.Create(new
+        {
+            seriesIds = new[] { seriesId },
+            qualityProfileId = qualityProfileId,
+            monitored = true
+        });
+
+        using var res = await _httpClient.SendAsync(req, ct);
+        return res.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SearchSeriesAsync(ServiceConnection connection, int seriesId, CancellationToken ct = default)
+    {
+        var baseUrl = connection.BaseUrl.TrimEnd('/');
+        using var req = CreateRequest(HttpMethod.Post, $"{baseUrl}/api/v3/command", connection.ApiKey);
+        req.Content = JsonContent.Create(new
+        {
+            name = "SeriesSearch",
+            seriesId = seriesId
+        });
+
+        using var res = await _httpClient.SendAsync(req, ct);
+        return res.IsSuccessStatusCode;
+    }
 }

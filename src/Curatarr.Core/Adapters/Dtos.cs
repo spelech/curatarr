@@ -103,3 +103,9 @@ public record OverseerrRequestDto(
     string? RequestedBy = null,
     DateTime? RequestedAt = null
 );
+
+public record QualityProfileDto(int Id, string Name);
+
+public record UpgradeQualityRequest(string ConnectionId, int QualityProfileId, bool TriggerSearch = true);
+
+public record UpgradeQualityResult(bool Success, string Message, string? QualityProfileName = null);

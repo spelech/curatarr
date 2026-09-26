@@ -136,7 +136,7 @@ public class SmartCategoryEngine : ISmartCategoryEngine
         [
             new CategoryCountSummary(SmartCategoryIds.NeverWatched, settings.NeverWatchedMinAgeDays > 0 ? $"Never Watched (>{settings.NeverWatchedMinAgeDays}d)" : "Never Watched", never.Count, never.Size),
             new CategoryCountSummary(SmartCategoryIds.Stale, $"Stale (>{settings.StaleDays}d)", stale.Count, stale.Size),
-            new CategoryCountSummary(SmartCategoryIds.Abandoned, "Abandoned TV", abandoned.Count, abandoned.Size),
+            new CategoryCountSummary(SmartCategoryIds.Abandoned, settings.AbandonedDays > 0 ? $"Abandoned TV (>{settings.AbandonedDays}d)" : "Abandoned TV", abandoned.Count, abandoned.Size),
             new CategoryCountSummary(SmartCategoryIds.Sub720p, settings.Sub720pCutoffYear > 0 ? $"Sub-720p (>={settings.Sub720pCutoffYear})" : "Sub-720p", sub720p.Count, sub720p.Size),
             new CategoryCountSummary(SmartCategoryIds.CutoffUnmet, "Cutoff Unmet", cutoff.Count, cutoff.Size),
             new CategoryCountSummary(SmartCategoryIds.SpaceHogs, "Space Hogs", space.Count, space.Size),

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Film, Tv, Shield, Trash2, ChevronDown, ChevronUp, Eye, History } from 'lucide-react';
+import { Film, Tv, Shield, Trash2, ChevronDown, ChevronUp, Eye, History, ArrowUpCircle } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { SeasonDrawer } from './SeasonDrawer';
 import { getItemBadges, itemPredatesWatchHistory, getBadgeStyle } from '../utils/badgeUtils';
@@ -13,6 +13,7 @@ interface MediaCardProps {
   onToggleProtect: (id: string, isProtected: boolean) => void;
   onPrune: (item: MediaItem, seasonNumber?: number, targetConnectionIds?: string[]) => void;
   onOpenDetail: (item: MediaItem) => void;
+  onUpgradeQuality?: (item: MediaItem) => void;
 }
 
 const MediaCardComponent: React.FC<MediaCardProps> = ({
@@ -22,6 +23,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
   onToggleProtect,
   onPrune,
   onOpenDetail,
+  onUpgradeQuality,
 }) => {
   const user = useAuthStore((s) => s.user);
   const isPreviewingAsGuest = useAuthStore((s) => s.isPreviewingAsGuest);
@@ -173,6 +175,19 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
               >
                 <Shield className="w-3 h-3" />
               </button>
+              {!isGuest && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUpgradeQuality?.(item);
+                  }}
+                  title="Upgrade quality profile & search"
+                  aria-label="Upgrade quality"
+                  className="p-1 rounded backdrop-blur-sm shadow bg-slate-900/80 text-slate-400 hover:text-sky-400 hover:bg-sky-500/20 transition flex items-center"
+                >
+                  <ArrowUpCircle className="w-3 h-3" />
+                </button>
+              )}
               {!isGuest && (
                 <div className="relative pointer-events-auto">
                   <button

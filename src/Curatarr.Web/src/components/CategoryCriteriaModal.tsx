@@ -11,8 +11,8 @@ import {
   Shield,
   ShieldAlert,
 } from 'lucide-react';
-import { useSettingsStore } from '../stores/useSettingsStore';
-
+import { useSettingsStore, DEFAULT_SETTINGS } from '../stores/useSettingsStore';
+ 
 interface CategoryCriteriaModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -32,13 +32,13 @@ export const CategoryCriteriaModal: React.FC<CategoryCriteriaModalProps> = ({
     return `${gb.toFixed(1)} GB`;
   };
 
-  const neverWatchedDays = settings?.neverWatchedMinAgeDays ?? 90;
-  const staleDays = settings?.staleDays ?? 180;
-  const abandonedDays = settings?.abandonedDays ?? 90;
-  const movieHdGb = formatGb(settings?.movieSpaceHogThresholdBytes ?? 12 * 1024 * 1024 * 1024);
-  const movie4kGb = formatGb(settings?.movie4kSpaceHogThresholdBytes ?? 20 * 1024 * 1024 * 1024);
-  const seriesEpGb = formatGb(settings?.seriesEpisodeSpaceHogThresholdBytes ?? 2 * 1024 * 1024 * 1024);
-  const sub720pYear = settings?.sub720pCutoffYear ?? 2000;
+  const neverWatchedDays = settings?.neverWatchedMinAgeDays ?? DEFAULT_SETTINGS.neverWatchedMinAgeDays;
+  const staleDays = settings?.staleDays ?? DEFAULT_SETTINGS.staleDays;
+  const abandonedDays = settings?.abandonedDays ?? DEFAULT_SETTINGS.abandonedDays;
+  const movieHdGb = formatGb(settings?.movieSpaceHogThresholdBytes ?? DEFAULT_SETTINGS.movieSpaceHogThresholdBytes);
+  const movie4kGb = formatGb(settings?.movie4kSpaceHogThresholdBytes ?? DEFAULT_SETTINGS.movie4kSpaceHogThresholdBytes);
+  const seriesEpGb = formatGb(settings?.seriesEpisodeSpaceHogThresholdBytes ?? DEFAULT_SETTINGS.seriesEpisodeSpaceHogThresholdBytes);
+  const sub720pYear = settings?.sub720pCutoffYear ?? DEFAULT_SETTINGS.sub720pCutoffYear ?? 2000;
 
   const categories = [
     {

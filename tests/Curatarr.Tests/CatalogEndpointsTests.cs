@@ -311,6 +311,94 @@ public class CatalogEndpointsTests : IClassFixture<WebApplicationFactory<Program
         protRequests.Should().Contain(p => p.MediaItemId == "req-test-item-1" && p.Username == "spelech");
     }
 
+    [Fact]
+    public async Task QualityProfilesAndUpgrade_ShouldFetchProfilesAndApplyUpgradeWithSearch()
+    {
+        var mockRadarr = Substitute.For<IRadarrClient>();
+        var mockSonarr = Substitute.For<ISonarrClient>();
+
+        mockRadarr.GetQualityProfilesAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns([new QualityProfileDto(1, "HD - 720p/1080p"), new QualityProfileDto(4, "Ultra-HD")]);
+        mockRadarr.UpdateQualityProfileAsync(Arg.Any<ServiceConnection>(), 201, 4, Arg.Any<CancellationToken>())
+            .Returns(true);
+        mockRadarr.SearchMovieAsync(Arg.Any<ServiceConnection>(), 201, Arg.Any<CancellationToken>())
+            .Returns(true);
+
+        var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.AddSingleton(_ => mockRadarr);
+                services.AddSingleton(_ => mockSonarr);
+            });
+        });
+
+        var client = factory.CreateClient();
+
+        using var scope = factory.Services.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IMediaRepository>();
+        var connRepo = scope.ServiceProvider.GetRequiredService<IConnectionRepository>();
+
+        var testConn = new ServiceConnection
+        {
+            Id = "radarr-upgrade-test",
+            Name = "Radarr Movies",
+            ConnectionType = ConnectionType.Radarr,
+            BaseUrl = "http://localhost:7878",
+            ApiKey = "test-key",
+            IsEnabled = true
+        };
+        await connRepo.UpsertAsync(testConn);
+
+        var testMovie = new MediaItem
+        {
+            Id = "movie-for-upgrade",
+            MediaType = MediaType.Movie,
+            Title = "Movie to Upgrade",
+            SortTitle = "Movie to Upgrade",
+            Instances =
+            [
+                new MediaInstance
+                {
+                    Id = "inst-upgrade-1",
+                    MediaItemId = "movie-for-upgrade",
+                    ConnectionId = "radarr-upgrade-test",
+                    ExternalId = 201,
+                    QualityProfileName = "SD",
+                    Resolution = "SD",
+                    HasFile = true
+                }
+            ]
+        };
+        await repo.UpsertBatchAsync([testMovie]);
+
+        // 1. GET /api/v1/connections/{connectionId}/quality-profiles
+        var profilesRes = await client.GetAsync($"/api/v1/connections/{testConn.Id}/quality-profiles");
+        profilesRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var profiles = await profilesRes.Content.ReadFromJsonAsync<List<QualityProfileDto>>();
+        profiles.Should().HaveCount(2);
+        profiles!.Select(p => p.Name).Should().Contain(["HD - 720p/1080p", "Ultra-HD"]);
+
+        // 2. POST /api/v1/media/{id}/upgrade-quality
+        var upgradeRes = await client.PostAsJsonAsync($"/api/v1/media/{testMovie.Id}/upgrade-quality", new UpgradeQualityRequest(
+            ConnectionId: testConn.Id,
+            QualityProfileId: 4,
+            TriggerSearch: true
+        ));
+        upgradeRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var upgradeResult = await upgradeRes.Content.ReadFromJsonAsync<UpgradeQualityResult>();
+        upgradeResult!.Success.Should().BeTrue();
+        upgradeResult.QualityProfileName.Should().Be("Ultra-HD");
+
+        // Verify Radarr client called
+        await mockRadarr.Received(1).UpdateQualityProfileAsync(Arg.Any<ServiceConnection>(), 201, 4, Arg.Any<CancellationToken>());
+        await mockRadarr.Received(1).SearchMovieAsync(Arg.Any<ServiceConnection>(), 201, Arg.Any<CancellationToken>());
+
+        // Verify repository instance updated
+        var updatedItem = await repo.GetByIdAsync(testMovie.Id);
+        updatedItem!.Instances.First().QualityProfileName.Should().Be("Ultra-HD");
+    }
+
     public record StatsResponse(long totalLibrarySizeBytes, int totalItemCount);
 }
 

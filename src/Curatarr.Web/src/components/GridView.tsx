@@ -10,6 +10,7 @@ interface GridViewProps {
   onToggleProtect: (id: string, isProtected: boolean) => void;
   onPrune: (item: MediaItem, seasonNum?: number, targetConnectionIds?: string[]) => void;
   onOpenDetail: (item: MediaItem) => void;
+  onUpgradeQuality?: (item: MediaItem) => void;
   hasMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
@@ -22,6 +23,7 @@ export const GridView: React.FC<GridViewProps> = ({
   onToggleProtect,
   onPrune,
   onOpenDetail,
+  onUpgradeQuality,
   hasMore,
   isLoadingMore,
   onLoadMore,
@@ -131,6 +133,7 @@ export const GridView: React.FC<GridViewProps> = ({
                   onToggleProtect={onToggleProtect}
                   onPrune={onPrune}
                   onOpenDetail={onOpenDetail}
+                  onUpgradeQuality={onUpgradeQuality}
                 />
               ))}
             </div>
