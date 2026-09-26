@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   HardDrive,
   Tv,
+  Film,
   FileQuestion,
   Shield,
   ShieldAlert,
@@ -37,6 +38,7 @@ export const CategoryCriteriaModal: React.FC<CategoryCriteriaModalProps> = ({
   const movieHdGb = formatGb(settings?.movieSpaceHogThresholdBytes ?? 12 * 1024 * 1024 * 1024);
   const movie4kGb = formatGb(settings?.movie4kSpaceHogThresholdBytes ?? 20 * 1024 * 1024 * 1024);
   const seriesEpGb = formatGb(settings?.seriesEpisodeSpaceHogThresholdBytes ?? 2 * 1024 * 1024 * 1024);
+  const sub720pYear = settings?.sub720pCutoffYear ?? 2000;
 
   const categories = [
     {
@@ -62,6 +64,16 @@ export const CategoryCriteriaModal: React.FC<CategoryCriteriaModalProps> = ({
       color: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
       rule: 'TV series where someone started watching (at least 1 episode played), but stopped mid-series.',
       threshold: `No episodes played in over ${abandonedDays} days, with unplayed episodes remaining.`,
+    },
+    {
+      id: 'sub_720p',
+      name: 'Sub-720p (SD)',
+      icon: Film,
+      color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+      rule: 'Titles containing at least one sub-720p (SD / 480p) file on disk, prime for quality upgrade or removal.',
+      threshold: sub720pYear > 0
+        ? `Released in or after ${sub720pYear} (pre-${sub720pYear} titles often only exist in SD).`
+        : 'All release years included (year cutoff disabled).',
     },
     {
       id: 'cutoff_unmet',

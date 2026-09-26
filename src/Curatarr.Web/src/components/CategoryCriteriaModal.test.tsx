@@ -55,6 +55,7 @@ describe('CategoryCriteriaModal component', () => {
 
     expect(screen.getByText('Protection Requests')).toBeDefined();
     expect(screen.getByText('Protected')).toBeDefined();
+    expect(screen.getByText('Sub-720p (SD)')).toBeDefined();
 
     // Close button
     const gotItBtn = screen.getByRole('button', { name: /Got it/i });

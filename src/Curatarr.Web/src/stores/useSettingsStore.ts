@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: CuratarrSettings = {
   neverWatchedMinAgeDays: 60,
   syncIntervalHours: 1,
   catalogBatchSize: 50,
+  sub720pCutoffYear: 2000,
   movieSpaceHogGb: 20.0,
   movie4kSpaceHogGb: 50.0,
   seriesEpisodeSpaceHogGb: 2.5,

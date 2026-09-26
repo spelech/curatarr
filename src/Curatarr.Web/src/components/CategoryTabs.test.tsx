@@ -2,12 +2,20 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { CategoryTabs } from './CategoryTabs';
 import { useCatalogStore } from '../stores/useCatalogStore';
+import { useSettingsStore, DEFAULT_SETTINGS } from '../stores/useSettingsStore';
 
 describe('CategoryTabs component', () => {
   beforeEach(() => {
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        sub720pCutoffYear: 2000,
+      },
+    });
+
     useCatalogStore.setState({
       categories: [
         {
@@ -22,8 +30,15 @@ describe('CategoryTabs component', () => {
           count: 5,
           reclaimableSizeBytes: 50 * 1024 * 1024 * 1024,
         },
+        {
+          categoryId: 'sub_720p',
+          name: 'Sub-720p (>=2000)',
+          count: 8,
+          reclaimableSizeBytes: 12 * 1024 * 1024 * 1024,
+        },
       ],
       selectedCategory: 'never_watched',
+      isCriteriaModalOpen: false,
     });
   });
 
@@ -31,30 +46,48 @@ describe('CategoryTabs component', () => {
     cleanup();
   });
 
-  it('renders categories with counts, reclaimable sizes, and All Items tab', () => {
+  it('renders active category in the dropdown trigger button', () => {
     render(<CategoryTabs />);
 
+    const trigger = screen.getByRole('button', { name: /Select Category/i });
+    expect(trigger).toBeDefined();
     expect(screen.getByText('Never Watched')).toBeDefined();
     expect(screen.getByText('14')).toBeDefined();
     expect(screen.getByText('200.0 GB')).toBeDefined();
-
-    expect(screen.getByText('Dormant (>1 Year)')).toBeDefined();
-    expect(screen.getByText('5')).toBeDefined();
-    expect(screen.getByText('50.0 GB')).toBeDefined();
-
     expect(screen.getByText('All Items')).toBeDefined();
   });
 
-  it('changes selected category when a tab is clicked', () => {
+  it('opens dropdown and allows selecting another category', () => {
     render(<CategoryTabs />);
 
-    const dormantTab = screen.getByText('Dormant (>1 Year)');
-    fireEvent.click(dormantTab);
+    const trigger = screen.getByRole('button', { name: /Select Category/i });
+    act(() => {
+      fireEvent.click(trigger);
+    });
 
-    expect(useCatalogStore.getState().selectedCategory).toBe('dormant');
+    // Dropdown list should be open
+    expect(screen.getByRole('listbox', { name: /Category list/i })).toBeDefined();
+    expect(screen.getByText('Dormant (>1 Year)')).toBeDefined();
+    expect(screen.getByText('Sub-720p (>=2000)')).toBeDefined();
 
-    const allItemsTab = screen.getByText('All Items');
-    fireEvent.click(allItemsTab);
+    // Select Sub-720p
+    const sub720pOption = screen.getByRole('option', { name: /Sub-720p/i });
+    act(() => {
+      fireEvent.click(sub720pOption);
+    });
+
+    expect(useCatalogStore.getState().selectedCategory).toBe('sub_720p');
+    // Dropdown should be closed
+    expect(screen.queryByRole('listbox')).toBeNull();
+  });
+
+  it('changes selected category when All Items shortcut is clicked', () => {
+    render(<CategoryTabs />);
+
+    const allItemsBtn = screen.getByRole('button', { name: /All Items/i });
+    act(() => {
+      fireEvent.click(allItemsBtn);
+    });
 
     expect(useCatalogStore.getState().selectedCategory).toBe('all');
   });
@@ -63,14 +96,22 @@ describe('CategoryTabs component', () => {
     render(<CategoryTabs />);
 
     const guideBtn = screen.getByRole('button', { name: /Category criteria guide/i });
-    fireEvent.click(guideBtn);
+    act(() => {
+      fireEvent.click(guideBtn);
+    });
 
     expect(useCatalogStore.getState().isCriteriaModalOpen).toBe(true);
   });
 
-  it('renders protection_requested category with violet badge and tooltip', () => {
+  it('renders quick triage button when pending protection requests exist', () => {
     useCatalogStore.setState({
       categories: [
+        {
+          categoryId: 'never_watched',
+          name: 'Never Watched',
+          count: 10,
+          reclaimableSizeBytes: 100 * 1024 * 1024 * 1024,
+        },
         {
           categoryId: 'protection_requested',
           name: 'Protection Requests',
@@ -78,13 +119,19 @@ describe('CategoryTabs component', () => {
           reclaimableSizeBytes: 45 * 1024 * 1024 * 1024,
         },
       ],
+      selectedCategory: 'never_watched',
     });
 
     render(<CategoryTabs />);
 
-    expect(screen.getByText('Protection Requests')).toBeDefined();
+    const triageBtn = screen.getByRole('button', { name: /Triage Requests/i });
+    expect(triageBtn).toBeDefined();
     expect(screen.getByText('3')).toBeDefined();
-    const btn = screen.getByText('Protection Requests').closest('button');
-    expect(btn?.title).toContain('Items requested by shared library users');
+
+    act(() => {
+      fireEvent.click(triageBtn);
+    });
+
+    expect(useCatalogStore.getState().selectedCategory).toBe('protection_requested');
   });
 });

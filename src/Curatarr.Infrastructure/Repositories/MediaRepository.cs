@@ -180,6 +180,15 @@ public class MediaRepository : IMediaRepository
                     whereClauses.Add("m.is_protected = 0");
                     whereClauses.Add("EXISTS (SELECT 1 FROM protection_requests pr WHERE pr.media_item_id = m.id)");
                     break;
+                case SmartCategoryIds.Sub720p:
+                    whereClauses.Add("m.is_protected = 0");
+                    whereClauses.Add("EXISTS (SELECT 1 FROM media_instances mi WHERE mi.media_item_id = m.id AND mi.resolution = 'SD')");
+                    if (settings.Sub720pCutoffYear > 0)
+                    {
+                        whereClauses.Add("(m.year IS NULL OR m.year >= @Sub720pCutoffYear)");
+                        parameters.Add("Sub720pCutoffYear", settings.Sub720pCutoffYear);
+                    }
+                    break;
             }
         }
 

@@ -24,6 +24,7 @@ public static class SettingsEndpoints
                 incoming.StaleDays < 1 ||
                 incoming.AbandonedDays < 1 ||
                 incoming.NeverWatchedMinAgeDays < 0 || incoming.NeverWatchedMinAgeDays > 3650 ||
+                incoming.Sub720pCutoffYear < 0 || incoming.Sub720pCutoffYear > 2100 ||
                 incoming.SyncIntervalHours < 1 || incoming.SyncIntervalHours > 168 ||
                 incoming.CatalogBatchSize < 10 || incoming.CatalogBatchSize > 500)
             {

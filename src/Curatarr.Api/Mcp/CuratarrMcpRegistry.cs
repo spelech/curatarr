@@ -56,7 +56,7 @@ public class CuratarrMcpRegistry
                     type = "object",
                     properties = new
                     {
-                        category = new { type = "string", description = "Category ID: 'never_watched', 'stale', 'abandoned', 'cutoff_unmet', 'space_hogs', 'missing', or 'protected'", @default = "never_watched" },
+                        category = new { type = "string", description = "Category ID: 'never_watched', 'stale', 'abandoned', 'sub_720p', 'cutoff_unmet', 'space_hogs', 'missing', or 'protected'", @default = "never_watched" },
                         mediaType = new { type = "string", description = "'movie' or 'series'", @enum = new[] { "movie", "series" } },
                         userId = new { type = "string", description = "Optional user ID filter" },
                         limit = new { type = "integer", description = "Max results (default 50)", @default = 50 }

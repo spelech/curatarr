@@ -13,6 +13,7 @@ export const ThresholdSettingsTab: React.FC = () => {
   const [staleDays, setStaleDays] = useState(DEFAULT_SETTINGS.staleDays);
   const [abandonedDays, setAbandonedDays] = useState(DEFAULT_SETTINGS.abandonedDays);
   const [neverWatchedMinAgeDays, setNeverWatchedMinAgeDays] = useState(DEFAULT_SETTINGS.neverWatchedMinAgeDays);
+  const [sub720pCutoffYear, setSub720pCutoffYear] = useState(DEFAULT_SETTINGS.sub720pCutoffYear ?? 2000);
   const [syncIntervalHours, setSyncIntervalHours] = useState(DEFAULT_SETTINGS.syncIntervalHours);
   const [catalogBatchSize, setCatalogBatchSize] = useState(DEFAULT_SETTINGS.catalogBatchSize);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -29,6 +30,7 @@ export const ThresholdSettingsTab: React.FC = () => {
       setStaleDays(settings.staleDays);
       setAbandonedDays(settings.abandonedDays);
       setNeverWatchedMinAgeDays(settings.neverWatchedMinAgeDays ?? DEFAULT_SETTINGS.neverWatchedMinAgeDays);
+      setSub720pCutoffYear(settings.sub720pCutoffYear ?? DEFAULT_SETTINGS.sub720pCutoffYear ?? 2000);
       setSyncIntervalHours(settings.syncIntervalHours ?? DEFAULT_SETTINGS.syncIntervalHours);
       setCatalogBatchSize(settings.catalogBatchSize ?? DEFAULT_SETTINGS.catalogBatchSize);
     }
@@ -45,6 +47,7 @@ export const ThresholdSettingsTab: React.FC = () => {
       staleDays,
       abandonedDays,
       neverWatchedMinAgeDays,
+      sub720pCutoffYear,
       syncIntervalHours,
       catalogBatchSize,
       movieSpaceHogGb,
@@ -68,6 +71,7 @@ export const ThresholdSettingsTab: React.FC = () => {
     setStaleDays(DEFAULT_SETTINGS.staleDays);
     setAbandonedDays(DEFAULT_SETTINGS.abandonedDays);
     setNeverWatchedMinAgeDays(DEFAULT_SETTINGS.neverWatchedMinAgeDays);
+    setSub720pCutoffYear(DEFAULT_SETTINGS.sub720pCutoffYear ?? 2000);
     setSyncIntervalHours(DEFAULT_SETTINGS.syncIntervalHours);
     setCatalogBatchSize(DEFAULT_SETTINGS.catalogBatchSize);
   };
@@ -239,6 +243,42 @@ export const ThresholdSettingsTab: React.FC = () => {
             </div>
             <p className="text-[10px] text-slate-500 pt-1">
               Days since last episode played for in-progress series (Default: 90 days).
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Low-Resolution (Sub-720p) Section */}
+      <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-4">
+        <div className="flex items-center gap-2 text-white font-semibold border-b border-slate-800 pb-2">
+          <Film className="w-4 h-4 text-blue-400" />
+          <span>Low-Resolution (Sub-720p) Thresholds</span>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Identify media files below 720p (SD/480p) that are candidates for quality replacement or pruning.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+          {/* Sub-720p Cutoff Year */}
+          <div className="space-y-1 bg-slate-900/60 border border-slate-800 p-3 rounded-lg">
+            <label className="text-slate-300 font-medium flex items-center gap-1.5">
+              <span>Release Year Cutoff</span>
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                max="2100"
+                value={sub720pCutoffYear}
+                onChange={(e) => setSub720pCutoffYear(parseInt(e.target.value) || 0)}
+                aria-label="Sub-720p release year cutoff"
+                className="w-full bg-slate-950 border border-slate-700 rounded-md px-2.5 py-1.5 text-white font-mono focus:border-sky-500 focus:outline-none"
+              />
+              <span className="text-[11px] font-mono text-slate-400 shrink-0">Year</span>
+            </div>
+            <p className="text-[10px] text-slate-500 pt-1">
+              Only flag items released in or after this year (Default: 2000. Set to 0 to include all years). Pre-2000 content often has no HD release available.
             </p>
           </div>
         </div>

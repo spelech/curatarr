@@ -25,5 +25,6 @@ public static class SmartCategoryIds
     public const string Missing = "missing";
     public const string Protected = "protected";
     public const string ProtectionRequested = "protection_requested";
+    public const string Sub720p = "sub_720p";
     public const string All = "all";
 }
