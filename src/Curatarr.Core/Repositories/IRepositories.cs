@@ -42,6 +42,7 @@ public interface IMediaRepository
     Task<IReadOnlyList<ProtectionRequest>> GetProtectionRequestsAsync(string mediaItemId, CancellationToken ct = default);
     Task<IReadOnlyList<PendingProtectionRequestDto>> GetAllProtectionRequestsAsync(CancellationToken ct = default);
     Task ClearProtectionRequestsAsync(string mediaItemId, CancellationToken ct = default);
+    Task UpdateInstanceQualityProfileAsync(string instanceId, string qualityProfileName, CancellationToken ct = default);
 }
 
 public interface IAuditRepository

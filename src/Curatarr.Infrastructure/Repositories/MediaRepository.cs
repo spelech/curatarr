@@ -563,4 +563,16 @@ public class MediaRepository : IMediaRepository
         const string sql = "DELETE FROM protection_requests WHERE media_item_id = @MediaItemId;";
         await conn.ExecuteAsync(new CommandDefinition(sql, new { MediaItemId = mediaItemId }, cancellationToken: ct));
     }
+
+    public async Task UpdateInstanceQualityProfileAsync(string instanceId, string qualityProfileName, CancellationToken ct = default)
+    {
+        using var conn = _factory.CreateConnection();
+        const string sql = "UPDATE media_instances SET quality_profile_name = @QualityProfileName, updated_at = @UpdatedAt WHERE id = @Id;";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = instanceId,
+            QualityProfileName = qualityProfileName,
+            UpdatedAt = DateTime.UtcNow.ToString("o")
+        }, cancellationToken: ct));
+    }
 }

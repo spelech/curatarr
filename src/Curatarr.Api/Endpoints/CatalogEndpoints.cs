@@ -167,6 +167,122 @@ public static class CatalogEndpoints
             var totalCount = await repo.GetTotalCountAsync(ct);
             return Results.Ok(new { totalLibrarySizeBytes = totalSize, totalItemCount = totalCount });
         }).RequireCuratarrRole();
+
+        group.MapGet("/connections/{connectionId}/quality-profiles", async (
+            string connectionId,
+            IConnectionRepository connRepo,
+            IRadarrClient radarrClient,
+            ISonarrClient sonarrClient,
+            CancellationToken ct) =>
+        {
+            var conn = await connRepo.GetByIdAsync(connectionId, ct);
+            if (conn == null)
+            {
+                return Results.NotFound(new { error = "Connection not found" });
+            }
+
+            try
+            {
+                IReadOnlyList<QualityProfileDto> profiles = conn.ConnectionType switch
+                {
+                    ConnectionType.Radarr => await radarrClient.GetQualityProfilesAsync(conn, ct),
+                    ConnectionType.Sonarr => await sonarrClient.GetQualityProfilesAsync(conn, ct),
+                    _ => []
+                };
+                return Results.Ok(profiles);
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Failed to retrieve quality profiles: {ex.Message}");
+            }
+        }).RequireCuratarrRole();
+
+        group.MapPost("/media/{id}/upgrade-quality", async (
+            HttpContext context,
+            string id,
+            UpgradeQualityRequest req,
+            IMediaRepository mediaRepo,
+            IConnectionRepository connRepo,
+            IRadarrClient radarrClient,
+            ISonarrClient sonarrClient,
+            IAuditRepository auditRepo,
+            CancellationToken ct) =>
+        {
+            var item = await mediaRepo.GetByIdAsync(id, ct);
+            if (item == null)
+            {
+                return Results.NotFound(new { error = "Media item not found" });
+            }
+
+            var conn = await connRepo.GetByIdAsync(req.ConnectionId, ct);
+            if (conn == null)
+            {
+                return Results.NotFound(new { error = "Connection not found" });
+            }
+
+            var instance = item.Instances.FirstOrDefault(i => i.ConnectionId == req.ConnectionId);
+            if (instance == null)
+            {
+                return Results.BadRequest(new { error = "Media item has no instance on the specified connection" });
+            }
+
+            try
+            {
+                // Retrieve profile name
+                IReadOnlyList<QualityProfileDto> profiles = conn.ConnectionType switch
+                {
+                    ConnectionType.Radarr => await radarrClient.GetQualityProfilesAsync(conn, ct),
+                    ConnectionType.Sonarr => await sonarrClient.GetQualityProfilesAsync(conn, ct),
+                    _ => []
+                };
+                var targetProfile = profiles.FirstOrDefault(p => p.Id == req.QualityProfileId);
+                var profileName = targetProfile?.Name ?? $"Profile {req.QualityProfileId}";
+
+                // Update Arr
+                if (conn.ConnectionType == ConnectionType.Radarr)
+                {
+                    await radarrClient.UpdateQualityProfileAsync(conn, instance.ExternalId, req.QualityProfileId, ct);
+                    if (req.TriggerSearch)
+                    {
+                        await radarrClient.SearchMovieAsync(conn, instance.ExternalId, ct);
+                    }
+                }
+                else if (conn.ConnectionType == ConnectionType.Sonarr)
+                {
+                    await sonarrClient.UpdateQualityProfileAsync(conn, instance.ExternalId, req.QualityProfileId, ct);
+                    if (req.TriggerSearch)
+                    {
+                        await sonarrClient.SearchSeriesAsync(conn, instance.ExternalId, ct);
+                    }
+                }
+
+                // Update local repository
+                await mediaRepo.UpdateInstanceQualityProfileAsync(instance.Id, profileName, ct);
+
+                // Audit log
+                var session = context.Items["CuratarrUser"] as UserSession;
+                await auditRepo.AddAsync(new AuditLogEntry
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    MediaItemId = item.Id,
+                    Title = item.Title,
+                    MediaType = item.MediaType.ToString(),
+                    Actor = session?.Username ?? "Admin",
+                    ExecutedAt = DateTime.UtcNow,
+                    Details = $"Upgraded quality profile to '{profileName}' on '{conn.Name}'" + (req.TriggerSearch ? " and triggered automatic search" : "")
+                }, ct);
+
+                return Results.Ok(new UpgradeQualityResult(
+                    true,
+                    $"Quality profile upgraded to '{profileName}'" + (req.TriggerSearch ? " and automatic search initiated." : "."),
+                    profileName
+                ));
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem($"Failed to update quality profile: {ex.Message}");
+            }
+        }).RequireCuratarrRole(UserRole.Admin);
     }
 
     public record ProtectRequest(string MediaItemId, bool IsProtected, string? Reason);
