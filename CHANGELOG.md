@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-26
+
+### Added
+- **Sub-720p (SD) Smart Category**:
+  - New smart category identifying unprotected movies and TV series with file copies below 720p (SD / 480p), prime for quality upgrade or removal.
+  - Multi-instance support: surfaces items having low-resolution copies even when 1080p/4K copies exist, enabling individual pruning of redundant SD files.
+  - Accurate reclaimable size calculation reflecting exact SD file sizes.
+- **Configurable Release Year Cutoff**:
+  - `Sub720pCutoffYear` setting (default: 2000, configurable in Rules & Thresholds tab).
+  - Automatically exempts older legacy media (e.g. pre-2000 content) that frequently has no HD version available in circulation.
+  - Setting cutoff to 0 includes all release years.
+- **Category Navigation Dropdown**:
+  - Transformed horizontal scrolling pill bar into an accessible, responsive Category Select Dropdown with active icons, item counts, and reclaimable space indicators.
+  - Persistent one-click triage button for pending Protection Requests when requests are awaiting admin review.
+  - Fast-action "All Items" shortcut and Rules Guide launcher.
+
 ## [1.4.0] - 2026-09-22
 
 ### Added
