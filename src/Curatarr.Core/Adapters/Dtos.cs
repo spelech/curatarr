@@ -57,7 +57,9 @@ public record RadarrMovieDto(
 public record TautulliUserDto(
     string UserId,
     string Username,
-    string? FriendlyName
+    string? FriendlyName,
+    int? HistoryCutoffYear = null,
+    DateTime? FirstWatchedAt = null
 );
 
 public record TautulliHistoryItemDto(

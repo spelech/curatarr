@@ -59,6 +59,19 @@ describe('ControlBar component', () => {
     expect(useCatalogStore.getState().selectedPre2017Filter).toBe('only');
   });
 
+  it('updates pre-history dropdown labels dynamically when selected user has specific cutoff year', () => {
+    useCatalogStore.setState({
+      users: [
+        { userId: 'user-jordan', username: 'jordan', friendlyName: 'Jordan', historyCutoffYear: 2019 },
+      ],
+      selectedUserId: 'user-jordan',
+    });
+
+    render(<ControlBar />);
+    expect(screen.getByText('Hide Pre-2019')).toBeDefined();
+    expect(screen.getByText('Only Pre-2019')).toBeDefined();
+  });
+
   it('toggles cutoff unmet filter on button click', () => {
     render(<ControlBar />);
     const cutoffBtn = screen.getByRole('button', { name: /Cutoff Unmet/i });

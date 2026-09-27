@@ -279,7 +279,7 @@ public class PersistenceTests : IDisposable
             Year = 2014,
             TotalSizeBytes = 1000,
             WatchStats = [
-                new WatchStat { Id = "ws1", MediaItemId = "pre2017-watched", UserId = "u1", PlayCount = 3 }
+                new WatchStat { Id = "ws1", MediaItemId = "pre2017-watched", UserId = "u1", PlayCount = 3, LastPlayedAt = DateTime.Parse("2018-05-10T12:00:00Z") }
             ]
         };
 
@@ -307,6 +307,15 @@ public class PersistenceTests : IDisposable
         // Filter: all (default)
         var allResults = await repo.GetPagedAsync(new MediaFilterOptions(Pre2017Filter: "all"));
         allResults.Select(x => x.Id).Should().Contain(["pre2017-unwatched", "post2017-unwatched", "pre2017-watched", "null-added-old-year"]);
+
+        // Test GetUserWatchHistoryCutoffsAsync
+        var cutoffs = await repo.GetUserWatchHistoryCutoffsAsync();
+        cutoffs.Should().ContainKey("u1");
+        cutoffs["u1"].CutoffYear.Should().BeGreaterThanOrEqualTo(2017);
+
+        // User-specific filter: when filtering by u1 (who watched pre2017-watched), pre2017-watched is NOT missing
+        var userOnly = await repo.GetPagedAsync(new MediaFilterOptions(UserIdFilter: "u1", Pre2017Filter: "only"));
+        userOnly.Select(x => x.Id).Should().NotContain("pre2017-watched");
     }
 
     [Fact]

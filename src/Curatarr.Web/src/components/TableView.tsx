@@ -65,6 +65,14 @@ const TableRow = React.memo<TableRowProps>(
     }, [showPruneMenu]);
 
     const totalPlays = item.watchStats.reduce((sum, w) => sum + w.playCount, 0);
+    const selectedUserId = useCatalogStore((s) => s.selectedUserId);
+    const users = useCatalogStore((s) => s.users);
+    const activeUser = users.find((u) => u.userId === selectedUserId);
+    const cutoffYear = activeUser?.historyCutoffYear || 2017;
+    const predatesTracking = itemPredatesWatchHistory(item, {
+      activeUserId: selectedUserId,
+      userCutoffYear: activeUser?.historyCutoffYear,
+    });
 
     return (
       <tr
@@ -103,14 +111,18 @@ const TableRow = React.memo<TableRowProps>(
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className="truncate block" title={item.title}>{item.title}</span>
-                {itemPredatesWatchHistory(item) && (
+                {predatesTracking && (
                   <span
                     data-testid="predates-tracking-badge"
                     className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-0.5 shrink-0"
-                    title="Added before watch history tracking began (July 2017). May have been watched previously."
+                    title={
+                      selectedUserId
+                        ? `Added or released before ${activeUser?.friendlyName || activeUser?.username || 'user'}'s watch history tracking began (${cutoffYear}).`
+                        : 'Added before watch history tracking began (July 2017). May have been watched previously.'
+                    }
                   >
                     <History className="w-2.5 h-2.5" />
-                    Pre-2017
+                    Pre-{cutoffYear}
                   </span>
                 )}
                 {(item.protectionRequestCount ?? 0) > 0 && (

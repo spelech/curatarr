@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { getItemBadges, getInstanceBadge, getInstanceTitle, itemPredatesWatchHistory } from './badgeUtils';
+import {
+  getItemBadges,
+  getInstanceBadge,
+  getInstanceTitle,
+  itemPredatesWatchHistory,
+  getHistoryCutoffYear,
+} from './badgeUtils';
 import { MediaItem, MediaInstance } from '../types/api';
 
 describe('badgeUtils', () => {
@@ -221,6 +227,81 @@ describe('badgeUtils', () => {
         watchStats: [],
       };
       expect(itemPredatesWatchHistory(itemPost2017)).toBe(false);
+    });
+
+    describe('when activeUserId is specified', () => {
+      const item: MediaItem = {
+        ...createItem([]),
+        addedAt: '2018-06-15T00:00:00Z',
+        watchStats: [
+          {
+            id: 'ws-1',
+            mediaItemId: 'item-1',
+            userId: 'other-user',
+            username: 'other',
+            playCount: 5,
+            lastPlayedAt: '2020-01-01T00:00:00Z',
+          },
+        ],
+      };
+
+      it('should return false if active user has watched the item (playCount > 0)', () => {
+        const itemWatchedByUser: MediaItem = {
+          ...item,
+          watchStats: [
+            ...item.watchStats,
+            {
+              id: 'ws-2',
+              mediaItemId: 'item-1',
+              userId: 'user-jordan',
+              username: 'jordan',
+              playCount: 2,
+              lastPlayedAt: '2021-01-01T00:00:00Z',
+            },
+          ],
+        };
+
+        const result = itemPredatesWatchHistory(itemWatchedByUser, {
+          activeUserId: 'user-jordan',
+          userCutoffYear: 2019,
+        });
+        expect(result).toBe(false);
+      });
+
+      it('should return true if active user has NOT watched item and item was added before cutoff year', () => {
+        // Jordan cutoff is 2019, item added in 2018 -> true (even though other-user watched it)
+        const result = itemPredatesWatchHistory(item, {
+          activeUserId: 'user-jordan',
+          userCutoffYear: 2019,
+        });
+        expect(result).toBe(true);
+      });
+
+      it('should return false if active user has NOT watched item but item was added after cutoff year', () => {
+        // Ginkel cutoff is 2023, item added in 2024 -> false
+        const recentItem: MediaItem = {
+          ...createItem([]),
+          addedAt: '2024-02-01T00:00:00Z',
+          watchStats: [],
+        };
+        const result = itemPredatesWatchHistory(recentItem, {
+          activeUserId: 'user-ginkel',
+          userCutoffYear: 2023,
+        });
+        expect(result).toBe(false);
+      });
+    });
+  });
+
+  describe('getHistoryCutoffYear', () => {
+    it('returns userCutoffYear when provided', () => {
+      expect(getHistoryCutoffYear({ activeUserId: 'u1', userCutoffYear: 2019 })).toBe(2019);
+    });
+
+    it('defaults to 2017 when userCutoffYear is missing or undefined', () => {
+      expect(getHistoryCutoffYear(null)).toBe(2017);
+      expect(getHistoryCutoffYear({})).toBe(2017);
+      expect(getHistoryCutoffYear({ activeUserId: 'u1' })).toBe(2017);
     });
   });
 });

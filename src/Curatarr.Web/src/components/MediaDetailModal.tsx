@@ -49,6 +49,10 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
   const requestProtection = useCatalogStore((s) => s.requestProtection);
   const removeProtectionRequest = useCatalogStore((s) => s.removeProtectionRequest);
   const clearProtectionRequests = useCatalogStore((s) => s.clearProtectionRequests);
+  const selectedUserId = useCatalogStore((s) => s.selectedUserId);
+  const users = useCatalogStore((s) => s.users);
+  const activeUser = users.find((u) => u.userId === selectedUserId);
+  const cutoffYear = activeUser?.historyCutoffYear || 2017;
 
   const [isEditingReason, setIsEditingReason] = useState(false);
   const [reasonInput, setReasonInput] = useState(currentItem?.protectionReason || '');
@@ -548,7 +552,10 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                 <div className="p-4 bg-slate-950/40 border border-slate-800/80 rounded-xl text-slate-500 text-center italic">
                   No recorded watch sessions from Tautulli or Plex.
                 </div>
-                {itemPredatesWatchHistory(currentItem) && (
+                {itemPredatesWatchHistory(currentItem, {
+                  activeUserId: selectedUserId,
+                  userCutoffYear: activeUser?.historyCutoffYear,
+                }) && (
                   <div
                     data-testid="detail-predates-tracking-alert"
                     className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-start gap-2.5"
@@ -557,9 +564,9 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                     <div>
                       <span className="font-semibold text-white block">Pre-dates Watch History Tracking</span>
                       <span className="text-amber-200/80 text-[11px] block mt-0.5">
-                        {currentItem.addedAt
-                          ? `This title was added to your library in ${formatDate(currentItem.addedAt)}, before Tautulli watch history tracking began in July 2017.`
-                          : 'This title predates Tautulli watch history tracking (began July 2017).'} It may have been watched without an active logging session.
+                        {selectedUserId
+                          ? `This title was added or released before ${activeUser?.friendlyName || activeUser?.username || 'user'}'s watch history tracking began (${cutoffYear}). It may have been watched without an active logging session.`
+                          : `${currentItem.addedAt ? `This title was added to your library in ${formatDate(currentItem.addedAt)}, before Tautulli watch history tracking began in July 2017.` : 'This title predates Tautulli watch history tracking (began July 2017).'} It may have been watched without an active logging session.`}
                       </span>
                     </div>
                   </div>

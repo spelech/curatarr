@@ -29,6 +29,7 @@ public static class CatalogEndpoints
             string? resolution,
             bool? cutoffUnmet,
             string? pre2017Filter,
+            int? userCutoffYear,
             string? sortBy,
             bool? sortDesc,
             int? limit,
@@ -59,6 +60,7 @@ public static class CatalogEndpoints
                 ResolutionFilter: resolution,
                 CutoffUnmetFilter: cutoffUnmet,
                 Pre2017Filter: pre2017Filter,
+                UserCutoffYear: userCutoffYear,
                 SortBy: sortBy ?? "size",
                 SortDescending: sortDesc ?? true,
                 Limit: effectiveLimit,
@@ -141,23 +143,32 @@ public static class CatalogEndpoints
             return Results.Ok(requests);
         }).RequireCuratarrRole(UserRole.Admin);
 
-        group.MapGet("/users", async (IConnectionRepository connRepo, ITautulliClient tautulli, CancellationToken ct) =>
+        group.MapGet("/users", async (IConnectionRepository connRepo, ITautulliClient tautulli, IMediaRepository mediaRepo, CancellationToken ct) =>
         {
             var conns = await connRepo.GetAllAsync(ct);
             var tautulliConn = conns.FirstOrDefault(c => c.ConnectionType == ConnectionType.Tautulli && c.IsEnabled);
             if (tautulliConn == null)
             {
-                return Results.Ok(Array.Empty<object>());
+                return Results.Ok(Array.Empty<TautulliUserDto>());
             }
 
             try
             {
                 var users = await tautulli.GetUsersAsync(tautulliConn, ct);
-                return Results.Ok(users);
+                var cutoffs = await mediaRepo.GetUserWatchHistoryCutoffsAsync(ct);
+                var enriched = users.Select(u =>
+                {
+                    if (cutoffs.TryGetValue(u.UserId, out var cutoff))
+                    {
+                        return u with { HistoryCutoffYear = cutoff.CutoffYear, FirstWatchedAt = cutoff.FirstWatchedAt };
+                    }
+                    return u with { HistoryCutoffYear = 2017 };
+                }).ToList();
+                return Results.Ok(enriched);
             }
             catch
             {
-                return Results.Ok(Array.Empty<object>());
+                return Results.Ok(Array.Empty<TautulliUserDto>());
             }
         }).RequireCuratarrRole();
 

@@ -19,6 +19,7 @@ public record MediaFilterOptions(
     string? ResolutionFilter = null,
     bool? CutoffUnmetFilter = null,
     string? Pre2017Filter = null,
+    int? UserCutoffYear = null,
     string? SortBy = "size", // "size", "added", "played", "title"
     bool SortDescending = true,
     int Limit = 50,
@@ -43,6 +44,7 @@ public interface IMediaRepository
     Task<IReadOnlyList<PendingProtectionRequestDto>> GetAllProtectionRequestsAsync(CancellationToken ct = default);
     Task ClearProtectionRequestsAsync(string mediaItemId, CancellationToken ct = default);
     Task UpdateInstanceQualityProfileAsync(string instanceId, string qualityProfileName, CancellationToken ct = default);
+    Task<Dictionary<string, (DateTime FirstWatchedAt, int CutoffYear)>> GetUserWatchHistoryCutoffsAsync(CancellationToken ct = default);
 }
 
 public interface IAuditRepository

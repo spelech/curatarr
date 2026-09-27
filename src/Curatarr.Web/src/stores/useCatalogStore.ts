@@ -221,7 +221,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       const { selectedCategory, selectedUserId, onlyMyRequests, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc, pageSize } = get();
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
-      if (selectedUserId) params.set('userId', selectedUserId);
+      if (selectedUserId) {
+        params.set('userId', selectedUserId);
+        const u = get().users.find((user) => user.userId === selectedUserId);
+        if (u?.historyCutoffYear) {
+          params.set('userCutoffYear', u.historyCutoffYear.toString());
+        }
+      }
       if (onlyMyRequests) {
         let requester = '';
         if (selectedUserId) {
@@ -269,7 +275,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     try {
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
-      if (selectedUserId) params.set('userId', selectedUserId);
+      if (selectedUserId) {
+        params.set('userId', selectedUserId);
+        const u = get().users.find((user) => user.userId === selectedUserId);
+        if (u?.historyCutoffYear) {
+          params.set('userCutoffYear', u.historyCutoffYear.toString());
+        }
+      }
       if (onlyMyRequests) {
         let requester = '';
         if (selectedUserId) {

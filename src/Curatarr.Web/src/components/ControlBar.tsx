@@ -34,6 +34,7 @@ export const ControlBar: React.FC = () => {
 
   const currentUser = useAuthStore((s) => s.user);
   const selectedUser = users.find((u) => u.userId === selectedUserId);
+  const cutoffYear = selectedUser?.historyCutoffYear || 2017;
   const isAllSelected = items.length > 0 && selectedIds.size === items.length;
 
   const hasActiveFilters = Boolean(
@@ -217,8 +218,8 @@ export const ControlBar: React.FC = () => {
               className="bg-transparent border-none text-slate-200 focus:outline-none text-xs cursor-pointer h-full"
             >
               <option value="all" className="bg-[#070c09] text-slate-200">All History</option>
-              <option value="exclude" className="bg-[#070c09] text-slate-200">Hide Pre-2017</option>
-              <option value="only" className="bg-[#070c09] text-slate-200">Only Pre-2017</option>
+              <option value="exclude" className="bg-[#070c09] text-slate-200">Hide Pre-{cutoffYear}</option>
+              <option value="only" className="bg-[#070c09] text-slate-200">Only Pre-{cutoffYear}</option>
             </select>
           </div>
 

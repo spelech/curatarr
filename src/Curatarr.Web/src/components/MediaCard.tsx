@@ -5,6 +5,7 @@ import { SeasonDrawer } from './SeasonDrawer';
 import { getItemBadges, itemPredatesWatchHistory, getBadgeStyle } from '../utils/badgeUtils';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useConnectionStore } from '../stores/useConnectionStore';
+import { useCatalogStore } from '../stores/useCatalogStore';
 
 interface MediaCardProps {
   item: MediaItem;
@@ -66,9 +67,17 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
     return `${Math.floor(daysAgo / 365)}y ago`;
   };
 
+  const selectedUserId = useCatalogStore((s) => s.selectedUserId);
+  const users = useCatalogStore((s) => s.users);
+  const activeUser = users.find((u) => u.userId === selectedUserId);
+  const cutoffYear = activeUser?.historyCutoffYear || 2017;
+
   const badges = getItemBadges(item);
   const hasCutoffUnmet = item.instances.some((i) => i.cutoffUnmet);
-  const predatesTracking = itemPredatesWatchHistory(item);
+  const predatesTracking = itemPredatesWatchHistory(item, {
+    activeUserId: selectedUserId,
+    userCutoffYear: activeUser?.historyCutoffYear,
+  });
 
   return (
     <div
@@ -132,10 +141,14 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                 <span
                   data-testid="predates-tracking-badge"
                   className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm flex items-center gap-0.5"
-                  title="Added before watch history tracking began (July 2017). May have been watched previously."
+                  title={
+                    selectedUserId
+                      ? `Added or released before ${activeUser?.friendlyName || activeUser?.username || 'user'}'s watch history tracking began (${cutoffYear}).`
+                      : 'Added before watch history tracking began (July 2017). May have been watched previously.'
+                  }
                 >
                   <History className="w-2.5 h-2.5" />
-                  Pre-2017
+                  Pre-{cutoffYear}
                 </span>
               )}
               {(item.protectionRequestCount ?? 0) > 0 && (
