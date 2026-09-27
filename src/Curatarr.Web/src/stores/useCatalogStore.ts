@@ -78,6 +78,16 @@ interface CatalogState {
   upgradeQuality: (mediaItemId: string, request: UpgradeQualityRequest) => Promise<UpgradeQualityResult>;
 }
 
+const getInitialViewMode = (): 'grid' | 'table' => {
+  try {
+    const saved = localStorage.getItem('curatarr_view_mode');
+    if (saved === 'grid' || saved === 'table') return saved;
+  } catch {
+    // ignore
+  }
+  return 'table';
+};
+
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   items: [],
   categories: [],
@@ -92,7 +102,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   searchQuery: '',
   sortBy: 'size',
   sortDesc: true,
-  viewMode: 'grid',
+  viewMode: getInitialViewMode(),
   selectedIds: new Set<string>(),
   isLoading: false,
   isLoadingMore: false,
@@ -160,7 +170,14 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     get().fetchItems();
   },
 
-  setViewMode: (mode) => set({ viewMode: mode }),
+  setViewMode: (mode) => {
+    try {
+      localStorage.setItem('curatarr_view_mode', mode);
+    } catch {
+      // ignore
+    }
+    set({ viewMode: mode });
+  },
 
   setPageSize: (size) => {
     set({ pageSize: size });

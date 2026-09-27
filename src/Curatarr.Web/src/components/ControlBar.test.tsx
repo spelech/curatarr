@@ -31,7 +31,7 @@ describe('ControlBar component', () => {
       searchQuery: '',
       sortBy: 'size',
       sortDesc: true,
-      viewMode: 'grid',
+      viewMode: 'table',
       selectedIds: new Set<string>(),
     });
   });
@@ -106,15 +106,15 @@ describe('ControlBar component', () => {
     expect(useCatalogStore.getState().selectedMediaType).toBe('all');
   });
 
-  it('toggles view mode between grid and table', () => {
+  it('toggles view mode between table and grid', () => {
     render(<ControlBar />);
-    const tableBtn = screen.getByTitle('Compact Table');
-    fireEvent.click(tableBtn);
-    expect(useCatalogStore.getState().viewMode).toBe('table');
-
     const gridBtn = screen.getByTitle('Poster Grid');
     fireEvent.click(gridBtn);
     expect(useCatalogStore.getState().viewMode).toBe('grid');
+
+    const tableBtn = screen.getByTitle('Compact Table');
+    fireEvent.click(tableBtn);
+    expect(useCatalogStore.getState().viewMode).toBe('table');
   });
 
   it('toggles select all and deselect all correctly', () => {

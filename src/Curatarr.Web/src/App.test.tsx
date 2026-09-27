@@ -21,6 +21,18 @@ vi.mock('./components/GridView', () => ({
   ),
 }));
 
+vi.mock('./components/TableView', () => ({
+  TableView: ({ items, onPrune }: { items: MediaItem[]; onPrune: (item: MediaItem) => void }) => (
+    <div data-testid="mock-table-view">
+      {items.map((item) => (
+        <button key={item.id} onClick={() => onPrune(item)}>
+          Prune {item.title}
+        </button>
+      ))}
+    </div>
+  ),
+}));
+
 describe('App Prune Toast Lifecycle Integration', () => {
   const mockItem: MediaItem = {
     id: 'item-1',
