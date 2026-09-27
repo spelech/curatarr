@@ -72,15 +72,17 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
 
   return (
     <div
-      className={`group bg-slate-900/60 border rounded-xl overflow-hidden transition flex flex-col justify-between ${
-        isSelected ? 'border-sky-500 ring-1 ring-sky-500/50 shadow-md' : 'border-slate-800 hover:border-slate-700'
-      } ${item.isProtected ? 'ring-1 ring-emerald-500/40' : ''}`}
+      className={`group bg-[#090e0b]/90 border rounded-xl overflow-hidden transition-all duration-200 flex flex-col justify-between ${
+        isSelected
+          ? 'border-emerald-500 ring-2 ring-emerald-500/40 shadow-lg shadow-emerald-950/40'
+          : 'border-[#14231a] hover:border-emerald-500/50 hover:shadow-xl hover:shadow-emerald-950/20'
+      } ${item.isProtected ? 'ring-1 ring-emerald-400/50' : ''}`}
     >
       <div>
         {/* Poster Header */}
         <div
           onClick={() => onOpenDetail(item)}
-          className="relative aspect-[2/3] w-full bg-slate-950 overflow-hidden cursor-pointer border-b border-slate-800/80"
+          className="relative aspect-[2/3] w-full bg-[#050806] overflow-hidden cursor-pointer border-b border-[#14231a]"
         >
           {item.posterUrl && !imgError ? (
             <img
@@ -92,14 +94,14 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
               decoding="async"
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-700 p-3">
-              {isSeries ? <Tv className="w-8 h-8 mb-1.5 text-slate-700" /> : <Film className="w-8 h-8 mb-1.5 text-slate-700" />}
-              <span className="text-[10px] text-slate-600 text-center line-clamp-2 px-1">{item.title}</span>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-[#050806] text-slate-700 p-3">
+              {isSeries ? <Tv className="w-8 h-8 mb-1.5 text-emerald-800/60" /> : <Film className="w-8 h-8 mb-1.5 text-emerald-800/60" />}
+              <span className="text-[10px] text-slate-500 text-center line-clamp-2 px-1">{item.title}</span>
             </div>
           )}
 
           {/* Top Overlay: Checkbox & Badges (Left), Protect & Prune (Right) */}
-          <div className="absolute inset-x-0 top-0 p-2 bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent flex items-start justify-between gap-1.5 z-10 pointer-events-none">
+          <div className="absolute inset-x-0 top-0 p-2 bg-gradient-to-b from-[#050806]/95 via-[#050806]/50 to-transparent flex items-start justify-between gap-1.5 z-10 pointer-events-none">
             <div className="flex items-center gap-1 flex-wrap pointer-events-auto">
               {!isGuest && (
                 <input
@@ -107,7 +109,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                   checked={isSelected}
                   onChange={() => onToggleSelect(item.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950/90 text-sky-600 focus:ring-sky-500 cursor-pointer shadow"
+                  className="w-3.5 h-3.5 rounded border-[#17261e] bg-[#050806] text-emerald-600 focus:ring-emerald-500 cursor-pointer shadow"
                 />
               )}
               {badges.map((b) => (
@@ -183,7 +185,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                   }}
                   title="Upgrade quality profile & search"
                   aria-label="Upgrade quality"
-                  className="p-1 rounded backdrop-blur-sm shadow bg-slate-900/80 text-slate-400 hover:text-sky-400 hover:bg-sky-500/20 transition flex items-center"
+                  className="p-1 rounded backdrop-blur-sm shadow bg-[#050806]/80 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/20 transition flex items-center"
                 >
                   <ArrowUpCircle className="w-3 h-3" />
                 </button>
@@ -207,7 +209,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                         ? 'Choose copy to prune (4K / HD)'
                         : 'Prune item'
                     }
-                    className="p-1 rounded backdrop-blur-sm shadow bg-slate-900/80 text-slate-400 hover:text-red-400 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-0.5"
+                    className="p-1 rounded backdrop-blur-sm shadow bg-[#050806]/80 text-slate-400 hover:text-red-400 hover:bg-red-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition flex items-center gap-0.5"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -217,7 +219,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                     <div
                       ref={menuRef}
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute right-0 top-full mt-1 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-30 text-left space-y-1 animate-in fade-in zoom-in-95 duration-150"
+                      className="absolute right-0 top-full mt-1 w-52 bg-[#090e0b] border border-[#17261e] rounded-xl shadow-2xl p-1.5 z-30 text-left space-y-1 animate-in fade-in zoom-in-95 duration-150"
                     >
                       <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                         Select Copy to Prune
@@ -234,7 +236,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                           {formatSize(item.totalSizeBytes)}
                         </span>
                       </button>
-                      <div className="h-px bg-slate-800 my-0.5" />
+                      <div className="h-px bg-[#14231a] my-0.5" />
                       {item.instances.map((inst) => {
                         const conn = connections.find((c) => c.id === inst.connectionId);
                         const name = conn?.name || inst.qualityProfileName || inst.resolution || 'Arr';
@@ -245,7 +247,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
                               setShowPruneMenu(false);
                               onPrune(item, undefined, [inst.connectionId]);
                             }}
-                            className="w-full px-2 py-1.5 rounded-lg text-xs hover:bg-slate-800 text-slate-200 flex items-center justify-between transition"
+                            className="w-full px-2 py-1.5 rounded-lg text-xs hover:bg-[#0f1a14] text-slate-200 flex items-center justify-between transition"
                           >
                             <div className="flex items-center gap-1.5 truncate">
                               <span className="truncate">{name}</span>
@@ -269,18 +271,18 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
           </div>
 
           {/* Bottom Gradient Overlay on Poster */}
-          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-900/90 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#090e0b]/90 to-transparent pointer-events-none" />
         </div>
 
         {/* Card Body Info */}
         <div className="p-2.5 space-y-1.5">
           <div onClick={() => onOpenDetail(item)} className="cursor-pointer group/title">
             <div className="flex items-center gap-1 text-[11px] text-slate-400 mb-0.5">
-              {isSeries ? <Tv className="w-3 h-3 text-sky-400" /> : <Film className="w-3 h-3 text-amber-400" />}
+              {isSeries ? <Tv className="w-3 h-3 text-emerald-400" /> : <Film className="w-3 h-3 text-emerald-400" />}
               <span>{isSeries ? 'Series' : 'Movie'}</span>
               {item.year && <span>• {item.year}</span>}
             </div>
-            <h3 className="text-xs font-semibold text-white tracking-tight line-clamp-1 group-hover/title:text-sky-300 transition" title={item.title}>
+            <h3 className="text-xs font-semibold text-white tracking-tight line-clamp-1 group-hover/title:text-emerald-400 transition" title={item.title}>
               {item.title}
             </h3>
           </div>
@@ -288,7 +290,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
           {/* Storage & Plays */}
           <div
             onClick={() => onOpenDetail(item)}
-            className="bg-slate-950/60 border border-slate-800/60 hover:border-slate-700/80 rounded-md p-1.5 flex items-center justify-between text-[11px] cursor-pointer transition"
+            className="bg-[#050806]/80 border border-[#14231a] hover:border-emerald-500/30 rounded-lg p-1.5 flex items-center justify-between text-[11px] cursor-pointer transition"
           >
             <div>
               <div className="text-[9px] text-slate-500">Storage</div>
@@ -296,10 +298,10 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
             </div>
             <div className="text-right">
               <div className="text-[9px] text-slate-500 flex items-center justify-end gap-0.5">
-                <Eye className="w-2 h-2" />
+                <Eye className="w-2 h-2 text-emerald-400" />
                 {totalPlays} {totalPlays === 1 ? 'play' : 'plays'}
               </div>
-              <div className={`text-[11px] font-medium ${lastPlayed === 0 ? 'text-amber-400/90' : 'text-slate-300'}`}>
+              <div className={`text-[11px] font-medium ${lastPlayed === 0 ? 'text-emerald-400/90' : 'text-slate-300'}`}>
                 {formatLastPlayed()}
               </div>
             </div>
@@ -312,7 +314,7 @@ const MediaCardComponent: React.FC<MediaCardProps> = ({
         <div>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full px-2.5 py-1 bg-slate-950/40 hover:bg-slate-900 border-t border-slate-800/60 text-slate-400 hover:text-slate-200 text-[10px] flex items-center justify-between transition"
+            className="w-full px-2.5 py-1 bg-[#050806]/60 hover:bg-[#070c09] border-t border-[#14231a] text-slate-400 hover:text-emerald-300 text-[10px] flex items-center justify-between transition"
           >
             <span>{item.seasons.length} Seasons</span>
             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}

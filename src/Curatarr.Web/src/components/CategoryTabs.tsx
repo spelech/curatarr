@@ -130,15 +130,15 @@ export const CategoryTabs: React.FC = () => {
             aria-haspopup="listbox"
             aria-label="Select Category"
             title={getCategoryTooltip(selectedCategory)}
-            className={`min-h-[32px] px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2.5 border shadow-sm ${
+            className={`min-h-[32px] px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-2.5 border shadow-sm ${
               isProtReqActive
                 ? 'bg-violet-600 text-white border-violet-500 hover:bg-violet-500'
                 : selectedCategory === 'all'
-                ? 'bg-slate-900 text-slate-200 border-slate-700 hover:border-slate-600'
-                : 'bg-sky-600 text-white border-sky-500 hover:bg-sky-500'
+                ? 'bg-[#0b130e] text-slate-200 border-[#14231a] hover:border-[#1c3024]'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
             }`}
           >
-            <ActiveIcon className="w-4 h-4 shrink-0 opacity-90" />
+            <ActiveIcon className="w-4 h-4 shrink-0 text-emerald-400 opacity-90" />
             <span className="font-medium tracking-wide">{activeName}</span>
 
             {activeCategorySummary && (
@@ -147,8 +147,8 @@ export const CategoryTabs: React.FC = () => {
                   isProtReqActive
                     ? 'bg-violet-700 text-white'
                     : selectedCategory === 'all'
-                    ? 'bg-slate-800 text-slate-300'
-                    : 'bg-sky-700 text-white'
+                    ? 'bg-[#14231a] text-slate-300'
+                    : 'bg-emerald-500 text-black'
                 }`}
               >
                 {activeCategorySummary.count}
@@ -173,9 +173,9 @@ export const CategoryTabs: React.FC = () => {
             <div
               role="listbox"
               aria-label="Category list"
-              className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 backdrop-blur-md max-h-[75vh] overflow-y-auto animate-fade-in"
+              className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 bg-[#090e0b] border border-[#17261e] rounded-xl shadow-2xl py-1.5 backdrop-blur-md max-h-[75vh] overflow-y-auto animate-fade-in"
             >
-              <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800/80">
+              <div className="px-3 py-1.5 text-[10px] font-semibold text-emerald-500 uppercase tracking-wider border-b border-[#14231a]">
                 Filter by Smart Category
               </div>
 
@@ -201,8 +201,8 @@ export const CategoryTabs: React.FC = () => {
                         isSelected
                           ? isProtReq
                             ? 'bg-violet-600/20 text-violet-200 border-l-2 border-violet-500 font-semibold'
-                            : 'bg-sky-600/20 text-sky-200 border-l-2 border-sky-500 font-semibold'
-                          : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                            : 'bg-emerald-500/15 text-emerald-200 border-l-2 border-emerald-500 font-semibold'
+                          : 'text-slate-300 hover:bg-[#0f1a14] hover:text-white'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -211,7 +211,7 @@ export const CategoryTabs: React.FC = () => {
                             isProtReq
                               ? 'text-violet-400'
                               : isSelected
-                              ? 'text-sky-400'
+                              ? 'text-emerald-400'
                               : 'text-slate-400'
                           }`}
                         />
@@ -232,22 +232,22 @@ export const CategoryTabs: React.FC = () => {
                             isSelected
                               ? isProtReq
                                 ? 'bg-violet-700 text-white'
-                                : 'bg-sky-700 text-white'
+                                : 'bg-emerald-500 text-black font-bold'
                               : isProtReq
                               ? 'bg-violet-900/60 text-violet-200'
-                              : 'bg-slate-800 text-slate-300'
+                              : 'bg-[#14231a] text-slate-300'
                           }`}
                         >
                           {cat.count}
                         </span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                       </div>
                     </button>
                   );
                 })}
 
                 {/* All Items Option */}
-                <div className="border-t border-slate-800/80 my-1 pt-1">
+                <div className="border-t border-[#14231a] my-1 pt-1">
                   <button
                     role="option"
                     aria-selected={selectedCategory === 'all'}
@@ -258,8 +258,8 @@ export const CategoryTabs: React.FC = () => {
                     title="Show all library items regardless of category"
                     className={`w-full px-3 py-2 text-left text-xs transition flex items-center justify-between gap-2.5 ${
                       selectedCategory === 'all'
-                        ? 'bg-sky-600/20 text-sky-200 border-l-2 border-sky-500 font-semibold'
-                        : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                        ? 'bg-emerald-500/15 text-emerald-200 border-l-2 border-emerald-500 font-semibold'
+                        : 'text-slate-300 hover:bg-[#0f1a14] hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -269,7 +269,7 @@ export const CategoryTabs: React.FC = () => {
                         <div className="text-[10px] text-slate-500">Show complete library catalog</div>
                       </div>
                     </div>
-                    {selectedCategory === 'all' && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
+                    {selectedCategory === 'all' && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                   </button>
                 </div>
               </div>
@@ -283,11 +283,11 @@ export const CategoryTabs: React.FC = () => {
             type="button"
             onClick={() => setSelectedCategory('protection_requested')}
             title="Jump to pending protection requests awaiting review"
-            className="px-2.5 py-1.5 min-h-[32px] rounded-lg text-xs font-semibold bg-violet-950/40 text-violet-300 hover:text-violet-100 border border-violet-800/50 hover:border-violet-600 flex items-center gap-1.5 transition shadow-sm animate-pulse"
+            className="px-2.5 py-1.5 min-h-[32px] rounded-xl text-xs font-semibold bg-emerald-950/60 text-emerald-300 hover:text-emerald-100 border border-emerald-800/60 hover:border-emerald-600 flex items-center gap-1.5 transition shadow-sm animate-pulse"
           >
-            <ShieldAlert className="w-3.5 h-3.5 text-violet-400" />
+            <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
             <span>Triage Requests</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-violet-800 text-white font-bold">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-emerald-500 text-black font-extrabold">
               {protReqCategory?.count}
             </span>
           </button>
@@ -299,7 +299,7 @@ export const CategoryTabs: React.FC = () => {
             type="button"
             onClick={() => setSelectedCategory('all')}
             title="View entire library catalog"
-            className="px-2.5 py-1.5 min-h-[32px] rounded-lg text-xs font-medium bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700 transition hidden sm:inline-flex items-center gap-1"
+            className="px-2.5 py-1.5 min-h-[32px] rounded-xl text-xs font-medium bg-[#0b130e] text-slate-400 hover:text-slate-200 border border-[#14231a] hover:border-[#1c3024] transition hidden sm:inline-flex items-center gap-1"
           >
             <Layers className="w-3.5 h-3.5" />
             <span>All Items</span>
@@ -311,7 +311,7 @@ export const CategoryTabs: React.FC = () => {
       <button
         type="button"
         onClick={() => setIsCriteriaModalOpen(true)}
-        className="px-2.5 py-1.5 min-h-[32px] rounded-lg text-xs font-medium bg-slate-900/60 text-slate-400 hover:text-sky-300 border border-slate-800 hover:border-slate-700 flex items-center gap-1.5 shrink-0 transition"
+        className="px-2.5 py-1.5 min-h-[32px] rounded-xl text-xs font-medium bg-[#0b130e] text-slate-400 hover:text-emerald-300 border border-[#14231a] hover:border-emerald-500/40 flex items-center gap-1.5 shrink-0 transition"
         title="View Smart Category Rules & Thresholds Guide"
         aria-label="Category criteria guide"
       >

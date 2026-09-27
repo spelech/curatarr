@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Film, Tv, Shield, Trash2, History, ArrowUpCircle } from 'lucide-react';
+import { Film, Tv, Shield, Trash2, History, ArrowUpCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { getInstanceBadge, itemPredatesWatchHistory, getBadgeStyle } from '../utils/badgeUtils';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useConnectionStore } from '../stores/useConnectionStore';
+import { useCatalogStore } from '../stores/useCatalogStore';
 
 interface TableViewProps {
   items: MediaItem[];
@@ -67,9 +68,9 @@ const TableRow = React.memo<TableRowProps>(
 
     return (
       <tr
-        className={`h-16 hover:bg-slate-800/40 transition ${
-          isSelected ? 'bg-sky-950/20' : ''
-        } ${item.isProtected ? 'bg-emerald-950/10' : ''}`}
+        className={`h-16 hover:bg-[#0c1410] border-b border-[#14231a] transition ${
+          isSelected ? 'bg-emerald-950/25' : ''
+        } ${item.isProtected ? 'bg-emerald-950/15' : ''}`}
       >
         <td className="p-3 overflow-hidden text-center">
           {!isGuest && (
@@ -77,26 +78,26 @@ const TableRow = React.memo<TableRowProps>(
               type="checkbox"
               checked={isSelected}
               onChange={() => onToggleSelect(item.id)}
-              className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-600 cursor-pointer"
+              className="w-4 h-4 rounded border-[#17261e] bg-[#050806] text-emerald-600 focus:ring-emerald-500 cursor-pointer"
             />
           )}
         </td>
         <td className="p-3 font-semibold text-white overflow-hidden">
           <div
             onClick={() => onOpenDetail(item)}
-            className="flex items-center gap-2.5 cursor-pointer hover:text-sky-300 transition min-w-0"
+            className="flex items-center gap-2.5 cursor-pointer hover:text-emerald-400 transition min-w-0"
           >
             {item.posterUrl ? (
               <img
                 src={item.posterUrl}
                 alt={item.title}
-                className="w-7 h-10 object-cover rounded shadow-sm border border-slate-800 shrink-0"
+                className="w-7 h-10 object-cover rounded shadow-sm border border-[#17261e] shrink-0"
                 loading="lazy"
                 decoding="async"
               />
             ) : (
-              <div className="w-7 h-10 bg-slate-800 rounded flex items-center justify-center shrink-0 text-slate-500 border border-slate-800">
-                {item.mediaType === 1 ? <Tv className="w-3.5 h-3.5" /> : <Film className="w-3.5 h-3.5" />}
+              <div className="w-7 h-10 bg-[#070c09] rounded flex items-center justify-center shrink-0 text-slate-500 border border-[#17261e]">
+                {item.mediaType === 1 ? <Tv className="w-3.5 h-3.5 text-emerald-400" /> : <Film className="w-3.5 h-3.5 text-emerald-400" />}
               </div>
             )}
             <div className="min-w-0 flex-1">
@@ -195,7 +196,7 @@ const TableRow = React.memo<TableRowProps>(
                   e.stopPropagation();
                   onUpgradeQuality?.(item);
                 }}
-                className="p-1.5 rounded text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 transition min-w-[28px] min-h-[28px] flex items-center justify-center"
+                className="p-1.5 rounded text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition min-w-[28px] min-h-[28px] flex items-center justify-center"
                 title="Upgrade quality profile & search"
                 aria-label="Upgrade quality"
               >
@@ -225,7 +226,7 @@ const TableRow = React.memo<TableRowProps>(
                   <div
                     ref={menuRef}
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-full mt-1 w-52 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-30 text-left space-y-1 animate-in fade-in zoom-in-95 duration-150"
+                    className="absolute right-0 top-full mt-1 w-52 bg-[#090e0b] border border-[#17261e] rounded-xl shadow-2xl p-1.5 z-30 text-left space-y-1 animate-in fade-in zoom-in-95 duration-150"
                   >
                     <div className="px-2 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                       Select Copy to Prune
@@ -242,7 +243,7 @@ const TableRow = React.memo<TableRowProps>(
                         {formatSize(item.totalSizeBytes)}
                       </span>
                     </button>
-                    <div className="h-px bg-slate-800 my-0.5" />
+                    <div className="h-px bg-[#14231a] my-0.5" />
                     {item.instances.map((inst) => {
                       const conn = connections.find((c) => c.id === inst.connectionId);
                       const name = conn?.name || inst.qualityProfileName || inst.resolution || 'Arr';
@@ -253,7 +254,7 @@ const TableRow = React.memo<TableRowProps>(
                             setShowPruneMenu(false);
                             onPrune(item, undefined, [inst.connectionId]);
                           }}
-                          className="w-full px-2 py-1.5 rounded-lg text-xs hover:bg-slate-800 text-slate-200 flex items-center justify-between transition"
+                          className="w-full px-2 py-1.5 rounded-lg text-xs hover:bg-[#0f1a14] text-slate-200 flex items-center justify-between transition"
                         >
                           <div className="flex items-center gap-1.5 truncate">
                             <span className="truncate">{name}</span>
@@ -294,6 +295,28 @@ export const TableView: React.FC<TableViewProps> = ({
   onLoadMore,
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const sortBy = useCatalogStore((s) => s.sortBy);
+  const sortDesc = useCatalogStore((s) => s.sortDesc);
+  const setSortBy = useCatalogStore((s) => s.setSortBy);
+  const toggleSortDesc = useCatalogStore((s) => s.toggleSortDesc);
+
+  const handleHeaderSort = (field: string) => {
+    if (sortBy === field) {
+      toggleSortDesc();
+    } else {
+      setSortBy(field);
+    }
+  };
+
+  const renderSortIndicator = (field: string) => {
+    if (sortBy !== field) return null;
+    return sortDesc ? (
+      <ChevronDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+    ) : (
+      <ChevronUp className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+    );
+  };
 
   // Stable dataset-derived column widths computed on load to prevent virtual layout shifts
   const columnWidths = React.useMemo(() => {
@@ -427,7 +450,7 @@ export const TableView: React.FC<TableViewProps> = ({
   return (
     <div
       ref={parentRef}
-      className="border border-slate-800 rounded-xl overflow-auto bg-slate-900/40 max-h-[calc(100vh-230px)] scrollbar-thin overscroll-y-contain [WebkitOverflowScrolling:touch]"
+      className="border border-[#17261e] rounded-xl overflow-auto bg-[#070c09]/80 max-h-[calc(100vh-230px)] scrollbar-thin overscroll-y-contain [WebkitOverflowScrolling:touch]"
     >
       <table
         className="w-full text-left border-collapse text-xs table-fixed"
@@ -444,20 +467,49 @@ export const TableView: React.FC<TableViewProps> = ({
           <col style={{ width: `${columnWidths.added}px` }} />
           <col style={{ width: `${columnWidths.actions}px` }} />
         </colgroup>
-        <thead className="sticky top-0 z-20 bg-slate-950/95 border-b border-slate-800 backdrop-blur-sm shadow-sm">
+        <thead className="sticky top-0 z-20 bg-[#070c09]/95 border-b border-[#17261e] backdrop-blur-sm shadow-sm">
           <tr className="text-slate-400 font-medium h-10">
             <th className="p-3" style={{ width: `${columnWidths.select}px` }}></th>
-            <th className="p-3">Title</th>
+            <th
+              className="p-3 cursor-pointer select-none hover:text-emerald-400 transition"
+              onClick={() => handleHeaderSort('title')}
+              title="Sort by Title"
+            >
+              <div className="flex items-center gap-1">
+                <span className={sortBy === 'title' ? 'text-emerald-400 font-semibold' : ''}>Title</span>
+                {renderSortIndicator('title')}
+              </div>
+            </th>
             <th className="p-3" style={{ width: `${columnWidths.type}px` }}>Type</th>
             <th className="p-3" style={{ width: `${columnWidths.instances}px` }}>Tier / Instances</th>
-            <th className="p-3" style={{ width: `${columnWidths.size}px` }}>Size</th>
+            <th
+              className="p-3 cursor-pointer select-none hover:text-emerald-400 transition"
+              style={{ width: `${columnWidths.size}px` }}
+              onClick={() => handleHeaderSort('size')}
+              title="Sort by Size"
+            >
+              <div className="flex items-center gap-1">
+                <span className={sortBy === 'size' ? 'text-emerald-400 font-semibold' : ''}>Size</span>
+                {renderSortIndicator('size')}
+              </div>
+            </th>
             <th className="p-3" style={{ width: `${columnWidths.plays}px` }}>Plays</th>
             <th className="p-3" style={{ width: `${columnWidths.lastWatched}px` }}>Last Watched</th>
-            <th className="p-3" style={{ width: `${columnWidths.added}px` }}>Added</th>
+            <th
+              className="p-3 cursor-pointer select-none hover:text-emerald-400 transition"
+              style={{ width: `${columnWidths.added}px` }}
+              onClick={() => handleHeaderSort('added')}
+              title="Sort by Date Added"
+            >
+              <div className="flex items-center gap-1">
+                <span className={sortBy === 'added' ? 'text-emerald-400 font-semibold' : ''}>Added</span>
+                {renderSortIndicator('added')}
+              </div>
+            </th>
             <th className="p-3 text-right" style={{ width: `${columnWidths.actions}px` }}>Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/60">
+        <tbody className="divide-y divide-[#17261e]/60">
           {virtualRows.length > 0 && (
             <>
               {virtualRows[0].start > 0 && (
@@ -503,8 +555,8 @@ export const TableView: React.FC<TableViewProps> = ({
       </table>
 
       {isLoadingMore && (
-        <div className="py-3 border-t border-slate-800 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-          <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <div className="py-3 border-t border-[#17261e] text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+          <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
           <span>Loading more candidates...</span>
         </div>
       )}
