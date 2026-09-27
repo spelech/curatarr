@@ -173,10 +173,11 @@ export const CategoryTabs: React.FC = () => {
             <div
               role="listbox"
               aria-label="Category list"
-              className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 bg-[#090e0b] border border-[#17261e] rounded-xl shadow-2xl py-1.5 backdrop-blur-md max-h-[75vh] overflow-y-auto animate-fade-in"
+              className="absolute left-0 top-full mt-1.5 z-50 w-[340px] sm:w-[460px] max-w-[calc(100vw-2rem)] bg-[#090e0b] border border-[#17261e] rounded-xl shadow-2xl py-1.5 backdrop-blur-md max-h-[75vh] overflow-y-auto animate-fade-in"
             >
-              <div className="px-3 py-1.5 text-[10px] font-semibold text-emerald-500 uppercase tracking-wider border-b border-[#14231a]">
-                Filter by Smart Category
+              <div className="px-3.5 py-2 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider border-b border-[#14231a] flex items-center justify-between">
+                <span>Filter by Smart Category</span>
+                <span className="text-[10px] text-slate-500 normal-case font-normal">Active criteria rules</span>
               </div>
 
               <div className="py-1">
@@ -197,17 +198,17 @@ export const CategoryTabs: React.FC = () => {
                         setIsOpen(false);
                       }}
                       title={tooltip}
-                      className={`w-full px-3 py-2 text-left text-xs transition flex items-center justify-between gap-2.5 ${
+                      className={`w-full px-3.5 py-2.5 text-left text-xs transition flex items-start justify-between gap-3 border-b border-[#14231a]/40 last:border-b-0 cursor-pointer ${
                         isSelected
                           ? isProtReq
-                            ? 'bg-violet-600/20 text-violet-200 border-l-2 border-violet-500 font-semibold'
-                            : 'bg-emerald-500/15 text-emerald-200 border-l-2 border-emerald-500 font-semibold'
+                            ? 'bg-violet-600/20 text-violet-200 border-l-2 border-l-violet-500 font-semibold'
+                            : 'bg-emerald-500/15 text-emerald-200 border-l-2 border-l-emerald-500 font-semibold'
                           : 'text-slate-300 hover:bg-[#0f1a14] hover:text-white'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
                         <Icon
-                          className={`w-4 h-4 shrink-0 ${
+                          className={`w-4 h-4 shrink-0 mt-0.5 ${
                             isProtReq
                               ? 'text-violet-400'
                               : isSelected
@@ -215,15 +216,17 @@ export const CategoryTabs: React.FC = () => {
                               : 'text-slate-400'
                           }`}
                         />
-                        <div className="truncate">
-                          <div className="truncate font-medium">{cat.name}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-slate-100 leading-tight">{cat.name}</div>
                           {tooltip && (
-                            <div className="text-[10px] text-slate-500 truncate">{tooltip}</div>
+                            <div className="text-[11px] text-slate-400 font-normal leading-relaxed mt-1 break-words">
+                              {tooltip}
+                            </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
                         {sizeStr && (
                           <span className="text-[10px] text-slate-400 font-mono">{sizeStr}</span>
                         )}
@@ -231,10 +234,10 @@ export const CategoryTabs: React.FC = () => {
                           className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                             isSelected
                               ? isProtReq
-                                ? 'bg-violet-700 text-white'
+                                ? 'bg-violet-700 text-white font-bold'
                                 : 'bg-emerald-500 text-black font-bold'
                               : isProtReq
-                              ? 'bg-violet-900/60 text-violet-200'
+                              ? 'bg-violet-900/60 text-violet-200 font-semibold'
                               : 'bg-[#14231a] text-slate-300'
                           }`}
                         >
@@ -256,20 +259,22 @@ export const CategoryTabs: React.FC = () => {
                       setIsOpen(false);
                     }}
                     title="Show all library items regardless of category"
-                    className={`w-full px-3 py-2 text-left text-xs transition flex items-center justify-between gap-2.5 ${
+                    className={`w-full px-3.5 py-2.5 text-left text-xs transition flex items-start justify-between gap-3 cursor-pointer ${
                       selectedCategory === 'all'
-                        ? 'bg-emerald-500/15 text-emerald-200 border-l-2 border-emerald-500 font-semibold'
+                        ? 'bg-emerald-500/15 text-emerald-200 border-l-2 border-l-emerald-500 font-semibold'
                         : 'text-slate-300 hover:bg-[#0f1a14] hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Layers className="w-4 h-4 text-slate-400 shrink-0" />
-                      <div>
-                        <div className="font-medium">All Items</div>
-                        <div className="text-[10px] text-slate-500">Show complete library catalog</div>
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <Layers className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-slate-100 leading-tight">All Items</div>
+                        <div className="text-[11px] text-slate-400 font-normal leading-relaxed mt-1 break-words">
+                          Show complete library catalog without category rules
+                        </div>
                       </div>
                     </div>
-                    {selectedCategory === 'all' && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                    {selectedCategory === 'all' && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />}
                   </button>
                 </div>
               </div>
