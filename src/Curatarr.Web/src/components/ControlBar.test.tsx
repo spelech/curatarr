@@ -31,7 +31,7 @@ describe('ControlBar component', () => {
       searchQuery: '',
       sortBy: 'size',
       sortDesc: true,
-      viewMode: 'grid',
+      viewMode: 'table',
       selectedIds: new Set<string>(),
     });
   });
@@ -57,6 +57,19 @@ describe('ControlBar component', () => {
 
     fireEvent.change(select, { target: { value: 'only' } });
     expect(useCatalogStore.getState().selectedPre2017Filter).toBe('only');
+  });
+
+  it('updates pre-history dropdown labels dynamically when selected user has specific cutoff year', () => {
+    useCatalogStore.setState({
+      users: [
+        { userId: 'user-jordan', username: 'jordan', friendlyName: 'Jordan', historyCutoffYear: 2019 },
+      ],
+      selectedUserId: 'user-jordan',
+    });
+
+    render(<ControlBar />);
+    expect(screen.getByText('Hide Pre-2019')).toBeDefined();
+    expect(screen.getByText('Only Pre-2019')).toBeDefined();
   });
 
   it('toggles cutoff unmet filter on button click', () => {
@@ -93,15 +106,15 @@ describe('ControlBar component', () => {
     expect(useCatalogStore.getState().selectedMediaType).toBe('all');
   });
 
-  it('toggles view mode between grid and table', () => {
+  it('toggles view mode between table and grid', () => {
     render(<ControlBar />);
-    const tableBtn = screen.getByTitle('Compact Table');
-    fireEvent.click(tableBtn);
-    expect(useCatalogStore.getState().viewMode).toBe('table');
-
     const gridBtn = screen.getByTitle('Poster Grid');
     fireEvent.click(gridBtn);
     expect(useCatalogStore.getState().viewMode).toBe('grid');
+
+    const tableBtn = screen.getByTitle('Compact Table');
+    fireEvent.click(tableBtn);
+    expect(useCatalogStore.getState().viewMode).toBe('table');
   });
 
   it('toggles select all and deselect all correctly', () => {

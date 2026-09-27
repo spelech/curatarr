@@ -27,10 +27,7 @@ describe('Header component', () => {
     expect(screen.getByText('Curatarr')).toBeDefined();
     expect(screen.getByText(/v\d+\.\d+\.\d+/)).toBeDefined();
 
-    const auditBtn = screen.getByRole('button', { name: /Audit Log/i });
-    fireEvent.click(auditBtn);
-    expect(onOpenAudit).toHaveBeenCalledTimes(1);
-
+    expect(screen.queryByRole('button', { name: /Audit Log/i })).toBeNull();
     const settingsBtn = screen.getByRole('button', { name: /Settings/i });
     fireEvent.click(settingsBtn);
     expect(onOpenSettings).toHaveBeenCalledTimes(1);

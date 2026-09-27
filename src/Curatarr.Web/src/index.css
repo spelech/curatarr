@@ -13,6 +13,26 @@ html {
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #020617;
-  color: #f8fafc;
+  background-color: #040705;
+  color: #f1f5f9;
+  overflow-x: hidden;
+}
+
+/* Custom Arr-style dark emerald scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070c09;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #14231a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
 }

@@ -105,6 +105,7 @@ public class MediaRepository : IMediaRepository
         var whereClauses = new List<string>();
         var parameters = new DynamicParameters();
         var settings = await _settingsRepo.GetSettingsAsync(ct);
+        parameters.Add("UserId", options.UserIdFilter);
 
         if (options.MediaTypeFilter.HasValue)
         {
@@ -133,13 +134,11 @@ public class MediaRepository : IMediaRepository
                         whereClauses.Add("(m.added_at IS NULL OR m.added_at <= @NeverWatchedMaxAddedDate)");
                         parameters.Add("NeverWatchedMaxAddedDate", DateTime.UtcNow.AddDays(-settings.NeverWatchedMinAgeDays).ToString("o"));
                     }
-                    parameters.Add("UserId", options.UserIdFilter);
                     break;
                 case SmartCategoryIds.Stale:
                     whereClauses.Add("m.is_protected = 0");
                     whereClauses.Add("(SELECT COALESCE(SUM(ws.play_count), 0) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)) > 0");
                     whereClauses.Add("(SELECT MAX(ws.last_played_at) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)) < @StaleDate");
-                    parameters.Add("UserId", options.UserIdFilter);
                     parameters.Add("StaleDate", DateTime.UtcNow.AddDays(-settings.StaleDays).ToString("o"));
                     break;
                 case SmartCategoryIds.CutoffUnmet:
@@ -211,8 +210,12 @@ public class MediaRepository : IMediaRepository
 
         if (!string.IsNullOrWhiteSpace(options.Pre2017Filter) && !options.Pre2017Filter.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
-            const string pre2017Condition = "(COALESCE((SELECT SUM(ws.play_count) FROM watch_stats ws WHERE ws.media_item_id = m.id), 0) = 0 AND ((m.added_at IS NOT NULL AND m.added_at < @TrackingStartDate) OR (m.added_at IS NULL AND m.year IS NOT NULL AND m.year <= 2017)))";
-            parameters.Add("TrackingStartDate", "2017-07-15T00:00:00Z");
+            var cutoffYear = options.UserCutoffYear ?? 2017;
+            var trackingStartDate = cutoffYear == 2017 ? "2017-07-15T00:00:00Z" : $"{cutoffYear}-01-01T00:00:00Z";
+
+            const string pre2017Condition = "(COALESCE((SELECT SUM(ws.play_count) FROM watch_stats ws WHERE ws.media_item_id = m.id AND (@UserId IS NULL OR ws.user_id = @UserId)), 0) = 0 AND ((m.added_at IS NOT NULL AND m.added_at < @TrackingStartDate) OR (m.added_at IS NULL AND m.year IS NOT NULL AND m.year <= @CutoffYear)))";
+            parameters.Add("TrackingStartDate", trackingStartDate);
+            parameters.Add("CutoffYear", cutoffYear);
 
             if (options.Pre2017Filter.Equals("exclude", StringComparison.OrdinalIgnoreCase))
             {
@@ -574,5 +577,28 @@ public class MediaRepository : IMediaRepository
             QualityProfileName = qualityProfileName,
             UpdatedAt = DateTime.UtcNow.ToString("o")
         }, cancellationToken: ct));
+    }
+
+    public async Task<Dictionary<string, (DateTime FirstWatchedAt, int CutoffYear)>> GetUserWatchHistoryCutoffsAsync(CancellationToken ct = default)
+    {
+        using var conn = _factory.CreateConnection();
+        var rows = await conn.QueryAsync<(string UserId, DateTime? FirstPlayed)>(
+            new CommandDefinition(
+                @"SELECT user_id AS UserId, MIN(last_played_at) AS FirstPlayed
+                  FROM watch_stats
+                  WHERE last_played_at IS NOT NULL
+                  GROUP BY user_id;",
+                cancellationToken: ct));
+
+        var dict = new Dictionary<string, (DateTime FirstWatchedAt, int CutoffYear)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in rows)
+        {
+            if (r.FirstPlayed.HasValue && !string.IsNullOrWhiteSpace(r.UserId))
+            {
+                var year = r.FirstPlayed.Value.Year;
+                dict[r.UserId] = (r.FirstPlayed.Value, year);
+            }
+        }
+        return dict;
     }
 }

@@ -64,6 +64,14 @@ export interface PendingProtectionRequest {
   createdAt: string;
 }
 
+export interface TautulliUser {
+  userId: string;
+  username: string;
+  friendlyName?: string;
+  historyCutoffYear?: number;
+  firstWatchedAt?: string;
+}
+
 export interface CuratarrUser {
   id: string;
   plexId: string;
@@ -73,6 +81,7 @@ export interface CuratarrUser {
   role: 'Admin' | 'Guest';
   createdAt?: string;
   updatedAt?: string;
+  historyCutoffYear?: number;
 }
 
 export interface AuthMeResponse {
@@ -130,12 +139,6 @@ export interface AuditLogEntry {
   actor: string;
   executedAt: string;
   details?: string;
-}
-
-export interface TautulliUser {
-  userId: string;
-  username: string;
-  friendlyName?: string;
 }
 
 export interface DiscoveredService {

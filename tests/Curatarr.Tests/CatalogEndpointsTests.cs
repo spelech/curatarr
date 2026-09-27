@@ -252,6 +252,7 @@ public class CatalogEndpointsTests : IClassFixture<WebApplicationFactory<Program
         var activeList = await activeRes.Content.ReadFromJsonAsync<List<TautulliUserDto>>();
         activeList.Should().HaveCount(1);
         activeList![0].Username.Should().Be("alice");
+        activeList[0].HistoryCutoffYear.Should().Be(2017);
 
         // 3. Active Tautulli connection with exception thrown
         mockTautulli.GetUsersAsync(activeConn, Arg.Any<CancellationToken>())

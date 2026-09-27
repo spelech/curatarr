@@ -33,6 +33,8 @@ interface CatalogState {
   isSyncing: boolean;
   prunedNotification: { count: number; bytesFreed: number } | null;
   pendingProtectionRequests: PendingProtectionRequest[];
+  protectedItems: MediaItem[];
+  isLoadingProtected: boolean;
   isProtectionModalOpen: boolean;
   isCriteriaModalOpen: boolean;
 
@@ -66,6 +68,7 @@ interface CatalogState {
   removeProtectionRequest: (mediaItemId: string) => Promise<boolean>;
   clearProtectionRequests: (mediaItemId: string) => Promise<boolean>;
   fetchPendingProtectionRequests: () => Promise<void>;
+  fetchProtectedItems: () => Promise<void>;
   approveProtectionRequest: (mediaItemId: string, reason?: string) => Promise<boolean>;
   dismissProtectionRequest: (mediaItemId: string) => Promise<boolean>;
   triggerSync: () => Promise<void>;
@@ -74,6 +77,16 @@ interface CatalogState {
   fetchQualityProfiles: (connectionId: string) => Promise<QualityProfile[]>;
   upgradeQuality: (mediaItemId: string, request: UpgradeQualityRequest) => Promise<UpgradeQualityResult>;
 }
+
+const getInitialViewMode = (): 'grid' | 'table' => {
+  try {
+    const saved = localStorage.getItem('curatarr_view_mode');
+    if (saved === 'grid' || saved === 'table') return saved;
+  } catch {
+    // ignore
+  }
+  return 'table';
+};
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   items: [],
@@ -89,7 +102,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   searchQuery: '',
   sortBy: 'size',
   sortDesc: true,
-  viewMode: 'grid',
+  viewMode: getInitialViewMode(),
   selectedIds: new Set<string>(),
   isLoading: false,
   isLoadingMore: false,
@@ -98,6 +111,8 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   isSyncing: false,
   prunedNotification: null,
   pendingProtectionRequests: [],
+  protectedItems: [],
+  isLoadingProtected: false,
   isProtectionModalOpen: false,
   isCriteriaModalOpen: false,
 
@@ -155,7 +170,14 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     get().fetchItems();
   },
 
-  setViewMode: (mode) => set({ viewMode: mode }),
+  setViewMode: (mode) => {
+    try {
+      localStorage.setItem('curatarr_view_mode', mode);
+    } catch {
+      // ignore
+    }
+    set({ viewMode: mode });
+  },
 
   setPageSize: (size) => {
     set({ pageSize: size });
@@ -216,7 +238,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       const { selectedCategory, selectedUserId, onlyMyRequests, selectedMediaType, selectedResolution, selectedCutoffUnmet, selectedPre2017Filter, searchQuery, sortBy, sortDesc, pageSize } = get();
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
-      if (selectedUserId) params.set('userId', selectedUserId);
+      if (selectedUserId) {
+        params.set('userId', selectedUserId);
+        const u = get().users.find((user) => user.userId === selectedUserId);
+        if (u?.historyCutoffYear) {
+          params.set('userCutoffYear', u.historyCutoffYear.toString());
+        }
+      }
       if (onlyMyRequests) {
         let requester = '';
         if (selectedUserId) {
@@ -264,7 +292,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     try {
       const params = new URLSearchParams();
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
-      if (selectedUserId) params.set('userId', selectedUserId);
+      if (selectedUserId) {
+        params.set('userId', selectedUserId);
+        const u = get().users.find((user) => user.userId === selectedUserId);
+        if (u?.historyCutoffYear) {
+          params.set('userCutoffYear', u.historyCutoffYear.toString());
+        }
+      }
       if (onlyMyRequests) {
         let requester = '';
         if (selectedUserId) {
@@ -315,11 +349,31 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         body: JSON.stringify({ mediaItemId, isProtected, reason }),
       });
       if (res.ok) {
-        set((state) => ({
-          items: state.items.map((i) =>
+        set((state) => {
+          const nextItems = state.items.map((i) =>
             i.id === mediaItemId ? { ...i, isProtected, protectionReason: reason } : i
-          ),
-        }));
+          );
+          let nextProtected = state.protectedItems;
+          if (!isProtected) {
+            nextProtected = state.protectedItems.filter((i) => i.id !== mediaItemId);
+          } else {
+            const existing = nextProtected.find((i) => i.id === mediaItemId);
+            if (existing) {
+              nextProtected = nextProtected.map((i) =>
+                i.id === mediaItemId ? { ...i, isProtected: true, protectionReason: reason } : i
+              );
+            } else {
+              const item = nextItems.find((i) => i.id === mediaItemId);
+              if (item) {
+                nextProtected = [{ ...item, isProtected: true, protectionReason: reason }, ...nextProtected];
+              }
+            }
+          }
+          return {
+            items: nextItems,
+            protectedItems: nextProtected,
+          };
+        });
         get().fetchCategories();
       }
     } catch {
@@ -402,6 +456,21 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     }
   },
 
+  fetchProtectedItems: async () => {
+    set({ isLoadingProtected: true });
+    try {
+      const res = await fetch('/api/v1/catalog?category=protected&limit=500');
+      if (res.ok) {
+        const data: MediaItem[] = await res.json();
+        set({ protectedItems: data, isLoadingProtected: false });
+      } else {
+        set({ isLoadingProtected: false });
+      }
+    } catch {
+      set({ isLoadingProtected: false });
+    }
+  },
+
   approveProtectionRequest: async (mediaItemId: string, reason?: string) => {
     try {
       await get().toggleProtect(mediaItemId, true, reason);
@@ -411,6 +480,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       }));
       get().fetchCategories();
       get().fetchItems();
+      get().fetchProtectedItems();
       return true;
     } catch {
       return false;

@@ -6,7 +6,11 @@ import { useToastStore } from './stores/useToastStore';
 import { useAuthStore } from './stores/useAuthStore';
 import { useSettingsStore } from './stores/useSettingsStore';
 import { Header } from './components/Header';
+import { AppView, Sidebar } from './components/Sidebar';
 import { CategoryTabs } from './components/CategoryTabs';
+import { ProtectedItemsPage } from './pages/ProtectedItemsPage';
+import { AuditPage } from './pages/AuditPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { ControlBar } from './components/ControlBar';
 import { GridView } from './components/GridView';
 import { TableView } from './components/TableView';
@@ -65,6 +69,28 @@ export default function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<AppView>('curation');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('curatarr_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const handleToggleSidebarCollapse = useCallback(() => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('curatarr_sidebar_collapsed', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, []);
+
   const [detailItem, setDetailItem] = useState<MediaItem | null>(null);
   const [pruneModalState, setPruneModalState] = useState<{
     isOpen: boolean;
@@ -229,85 +255,112 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Guest Preview Mode Sticky Banner */}
-      {isPreviewingAsGuest && (
-        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40 backdrop-blur-sm sticky top-0">
-          <div className="flex items-center gap-2">
-            <Eye className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              <strong>Guest Preview Mode:</strong> You are viewing Curatarr as a non-admin library user. Deletion, pruning, and settings are hidden.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPreviewAsGuest(false)}
-            className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all text-xs cursor-pointer"
-          >
-            Exit Preview
-          </button>
-        </div>
-      )}
-
-      {/* Top Header */}
-      <Header
-        onOpenSettings={() => !isGuest && setIsSettingsOpen(true)}
-        onOpenAudit={() => !isGuest && setIsAuditOpen(true)}
+    <div className="min-h-screen bg-[#040705] text-slate-100 flex flex-col md:flex-row font-sans overflow-x-hidden">
+      {/* Arr-grade Collapsible Navigation Sidebar */}
+      <Sidebar
+        currentView={currentView}
+        onChangeView={(view) => setCurrentView(view)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebarCollapse}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onOpenSettings={() => !isGuest && setCurrentView('settings')}
+        onOpenAudit={() => !isGuest && setCurrentView('audit')}
+        onOpenProtectionRequests={() => !isGuest && setCurrentView('protected')}
       />
 
-      {/* Main App Container */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-5 space-y-4">
-        {/* Category Tabs */}
-        <CategoryTabs />
-
-        {/* Filters & Control Bar */}
-        <ControlBar />
-
-        {/* Content View: Grid or Table */}
-        {isLoading ? (
-          <div className="border border-dashed border-slate-800 rounded-2xl p-16 text-center text-slate-400 text-xs">
-            <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            Loading catalog candidates...
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Guest Preview Mode Sticky Banner */}
+        {isPreviewingAsGuest && (
+          <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-300 flex items-center justify-between z-40 backdrop-blur-sm sticky top-0">
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Guest Preview Mode:</strong> You are viewing Curatarr as a non-admin library user. Deletion, pruning, and settings are hidden.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewAsGuest(false)}
+              className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all text-xs cursor-pointer"
+            >
+              Exit Preview
+            </button>
           </div>
-        ) : items.length === 0 ? (
-          <div className="border border-dashed border-slate-800 rounded-2xl p-16 text-center">
-            <Film className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-sm font-semibold text-slate-300">No Candidates Found</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-              No media items matched the active category or filter. Your library is clean, or you can trigger a "Sync Now" to update.
-            </p>
-          </div>
-        ) : viewMode === 'grid' ? (
-          <GridView
-            items={items}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-            onToggleProtect={toggleProtect}
-            onPrune={handleOpenSinglePrune}
-            onOpenDetail={handleOpenDetail}
-            onUpgradeQuality={handleOpenUpgrade}
-            hasMore={hasMore}
-            isLoadingMore={isLoadingMore}
-            onLoadMore={loadMore}
-          />
-        ) : (
-          <TableView
-            items={items}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-            onToggleProtect={toggleProtect}
-            onPrune={handleOpenSinglePrune}
-            onOpenDetail={handleOpenDetail}
-            onUpgradeQuality={handleOpenUpgrade}
-            hasMore={hasMore}
-            isLoadingMore={isLoadingMore}
-            onLoadMore={loadMore}
-          />
         )}
-      </main>
 
-      {/* Sticky Batch Action Bar (Admin Only) */}
-      {!isGuest && (
+        {/* Top Header */}
+        <Header
+          onOpenSettings={() => !isGuest && setCurrentView('settings')}
+          onOpenAudit={() => !isGuest && setCurrentView('audit')}
+          onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
+        />
+
+        {/* Main App Container */}
+        <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-5 space-y-4">
+          {(currentView === 'protected' || currentView === 'triage') && !isGuest ? (
+            <ProtectedItemsPage onOpenDetail={(item) => setDetailItem(item)} />
+          ) : currentView === 'audit' && !isGuest ? (
+            <AuditPage />
+          ) : currentView === 'settings' && !isGuest ? (
+            <SettingsPage />
+          ) : (
+            <>
+              {/* Category Tabs */}
+              <CategoryTabs />
+
+              {/* Filters & Control Bar */}
+              <ControlBar />
+
+              {/* Content View: Grid or Table */}
+              {isLoading ? (
+                <div className="border border-dashed border-[#17261e] rounded-2xl p-16 text-center text-slate-400 text-xs bg-[#070c09]/40">
+                  <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  Loading catalog candidates...
+                </div>
+              ) : items.length === 0 ? (
+                <div className="border border-dashed border-[#17261e] rounded-2xl p-16 text-center bg-[#070c09]/40">
+                  <Film className="w-12 h-12 text-[#1c3327] mx-auto mb-3" />
+                  <h3 className="text-sm font-semibold text-slate-200">No Candidates Found</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                    No media items matched the active category or filter. Your library is clean, or you can trigger a "Sync Now" to update.
+                  </p>
+                </div>
+              ) : viewMode === 'grid' ? (
+                <GridView
+                  items={items}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onToggleProtect={toggleProtect}
+                  onPrune={handleOpenSinglePrune}
+                  onOpenDetail={handleOpenDetail}
+                  onUpgradeQuality={handleOpenUpgrade}
+                  hasMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMore}
+                />
+              ) : (
+                <TableView
+                  items={items}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onToggleProtect={toggleProtect}
+                  onPrune={handleOpenSinglePrune}
+                  onOpenDetail={handleOpenDetail}
+                  onUpgradeQuality={handleOpenUpgrade}
+                  hasMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMore}
+                />
+              )}
+            </>
+          )}
+        </main>
+      </div>
+
+      {/* Sticky Batch Action Bar (Admin Only, Curation View Only) */}
+      {!isGuest && currentView === 'curation' && (
         <BatchActionBar
           selectedCount={selectedIds.size}
           selectedItems={selectedItems}
