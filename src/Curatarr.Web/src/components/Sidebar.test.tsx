@@ -48,7 +48,6 @@ describe('Sidebar component', () => {
     );
 
     expect(screen.getByText('Curatarr')).toBeDefined();
-    expect(screen.getByText('Library Intelligence')).toBeDefined();
     expect(screen.getByText('Library Curation')).toBeDefined();
     expect(screen.getByText('Protected Items')).toBeDefined();
     expect(screen.getByText('Audit History')).toBeDefined();

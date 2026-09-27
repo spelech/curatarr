@@ -131,18 +131,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <CuratarrLogo size={28} glow />
               </div>
               {!isCollapsed && (
-                <div className="truncate">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-sm tracking-tight text-white">
-                      Curatarr
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                      v{__APP_VERSION__}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-emerald-600 font-medium tracking-wide truncate">
-                    Library Intelligence
-                  </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-extrabold text-sm tracking-tight text-white">
+                    Curatarr
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    v{__APP_VERSION__}
+                  </span>
                 </div>
               )}
             </div>
