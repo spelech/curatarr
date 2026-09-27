@@ -15,17 +15,23 @@ import {
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
+export type AppView = 'curation' | 'triage' | 'audit' | 'settings';
+
 interface SidebarProps {
+  currentView?: AppView;
+  onChangeView?: (view: AppView) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
-  onOpenSettings: () => void;
-  onOpenAudit: () => void;
-  onOpenProtectionRequests: () => void;
+  onOpenSettings?: () => void;
+  onOpenAudit?: () => void;
+  onOpenProtectionRequests?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
+  currentView = 'curation',
+  onChangeView,
   isCollapsed,
   onToggleCollapse,
   isMobileOpen,
@@ -46,28 +52,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isAdmin = (!user || user.role === 'Admin') && !isPreviewingAsGuest;
   const pendingCount = pendingProtectionRequests.length;
 
+  const handleSelectView = (view: AppView) => {
+    if (onChangeView) {
+      onChangeView(view);
+    } else {
+      if (view === 'settings') onOpenSettings?.();
+      if (view === 'audit') onOpenAudit?.();
+      if (view === 'triage') onOpenProtectionRequests?.();
+    }
+    onCloseMobile();
+  };
+
   const navItems = [
     {
-      id: 'library',
+      id: 'curation',
       label: 'Library Curation',
       icon: Film,
-      action: () => {
-        onCloseMobile();
-      },
-      isActive: true,
+      action: () => handleSelectView('curation'),
+      isActive: currentView === 'curation',
       badge: null,
     },
     ...(isAdmin
       ? [
           {
-            id: 'protection_requests',
+            id: 'triage',
             label: 'Protection Triage',
             icon: ShieldAlert,
-            action: () => {
-              onOpenProtectionRequests();
-              onCloseMobile();
-            },
-            isActive: false,
+            action: () => handleSelectView('triage'),
+            isActive: currentView === 'triage',
             badge: pendingCount > 0 ? pendingCount : null,
             badgeColor: 'bg-emerald-500 text-black',
           },
@@ -75,22 +87,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id: 'audit',
             label: 'Audit History',
             icon: History,
-            action: () => {
-              onOpenAudit();
-              onCloseMobile();
-            },
-            isActive: false,
+            action: () => handleSelectView('audit'),
+            isActive: currentView === 'audit',
             badge: null,
           },
           {
             id: 'settings',
             label: 'Settings & Rules',
             icon: Settings,
-            action: () => {
-              onOpenSettings();
-              onCloseMobile();
-            },
-            isActive: false,
+            action: () => handleSelectView('settings'),
+            isActive: currentView === 'settings',
             badge: null,
           },
         ]

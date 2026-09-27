@@ -6,8 +6,11 @@ import { useToastStore } from './stores/useToastStore';
 import { useAuthStore } from './stores/useAuthStore';
 import { useSettingsStore } from './stores/useSettingsStore';
 import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
+import { AppView, Sidebar } from './components/Sidebar';
 import { CategoryTabs } from './components/CategoryTabs';
+import { TriagePage } from './pages/TriagePage';
+import { AuditPage } from './pages/AuditPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { ControlBar } from './components/ControlBar';
 import { GridView } from './components/GridView';
 import { TableView } from './components/TableView';
@@ -66,6 +69,7 @@ export default function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<AppView>('curation');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('curatarr_sidebar_collapsed') === 'true';
@@ -254,13 +258,15 @@ export default function App() {
     <div className="min-h-screen bg-[#040705] text-slate-100 flex flex-col md:flex-row font-sans overflow-x-hidden">
       {/* Arr-grade Collapsible Navigation Sidebar */}
       <Sidebar
+        currentView={currentView}
+        onChangeView={(view) => setCurrentView(view)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
-        onOpenSettings={() => !isGuest && setIsSettingsOpen(true)}
-        onOpenAudit={() => !isGuest && setIsAuditOpen(true)}
-        onOpenProtectionRequests={() => setIsProtectionModalOpen(true)}
+        onOpenSettings={() => !isGuest && setCurrentView('settings')}
+        onOpenAudit={() => !isGuest && setCurrentView('audit')}
+        onOpenProtectionRequests={() => !isGuest && setCurrentView('triage')}
       />
 
       {/* Main Content Area */}
@@ -286,65 +292,75 @@ export default function App() {
 
         {/* Top Header */}
         <Header
-          onOpenSettings={() => !isGuest && setIsSettingsOpen(true)}
-          onOpenAudit={() => !isGuest && setIsAuditOpen(true)}
+          onOpenSettings={() => !isGuest && setCurrentView('settings')}
+          onOpenAudit={() => !isGuest && setCurrentView('audit')}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen((prev) => !prev)}
         />
 
         {/* Main App Container */}
         <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-5 space-y-4">
-          {/* Category Tabs */}
-          <CategoryTabs />
-
-          {/* Filters & Control Bar */}
-          <ControlBar />
-
-          {/* Content View: Grid or Table */}
-          {isLoading ? (
-            <div className="border border-dashed border-[#17261e] rounded-2xl p-16 text-center text-slate-400 text-xs bg-[#070c09]/40">
-              <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              Loading catalog candidates...
-            </div>
-          ) : items.length === 0 ? (
-            <div className="border border-dashed border-[#17261e] rounded-2xl p-16 text-center bg-[#070c09]/40">
-              <Film className="w-12 h-12 text-[#1c3327] mx-auto mb-3" />
-              <h3 className="text-sm font-semibold text-slate-200">No Candidates Found</h3>
-              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                No media items matched the active category or filter. Your library is clean, or you can trigger a "Sync Now" to update.
-              </p>
-            </div>
-          ) : viewMode === 'grid' ? (
-            <GridView
-              items={items}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-              onToggleProtect={toggleProtect}
-              onPrune={handleOpenSinglePrune}
-              onOpenDetail={handleOpenDetail}
-              onUpgradeQuality={handleOpenUpgrade}
-              hasMore={hasMore}
-              isLoadingMore={isLoadingMore}
-              onLoadMore={loadMore}
-            />
+          {currentView === 'triage' && !isGuest ? (
+            <TriagePage onOpenDetail={(item) => setDetailItem(item)} />
+          ) : currentView === 'audit' && !isGuest ? (
+            <AuditPage />
+          ) : currentView === 'settings' && !isGuest ? (
+            <SettingsPage />
           ) : (
-            <TableView
-              items={items}
-              selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-              onToggleProtect={toggleProtect}
-              onPrune={handleOpenSinglePrune}
-              onOpenDetail={handleOpenDetail}
-              onUpgradeQuality={handleOpenUpgrade}
-              hasMore={hasMore}
-              isLoadingMore={isLoadingMore}
-              onLoadMore={loadMore}
-            />
+            <>
+              {/* Category Tabs */}
+              <CategoryTabs />
+
+              {/* Filters & Control Bar */}
+              <ControlBar />
+
+              {/* Content View: Grid or Table */}
+              {isLoading ? (
+                <div className="border border-dashed border-[#17261e] rounded-2xl p-16 text-center text-slate-400 text-xs bg-[#070c09]/40">
+                  <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  Loading catalog candidates...
+                </div>
+              ) : items.length === 0 ? (
+                <div className="border border-dashed border-[#17261e] rounded-2xl p-16 text-center bg-[#070c09]/40">
+                  <Film className="w-12 h-12 text-[#1c3327] mx-auto mb-3" />
+                  <h3 className="text-sm font-semibold text-slate-200">No Candidates Found</h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                    No media items matched the active category or filter. Your library is clean, or you can trigger a "Sync Now" to update.
+                  </p>
+                </div>
+              ) : viewMode === 'grid' ? (
+                <GridView
+                  items={items}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onToggleProtect={toggleProtect}
+                  onPrune={handleOpenSinglePrune}
+                  onOpenDetail={handleOpenDetail}
+                  onUpgradeQuality={handleOpenUpgrade}
+                  hasMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMore}
+                />
+              ) : (
+                <TableView
+                  items={items}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onToggleProtect={toggleProtect}
+                  onPrune={handleOpenSinglePrune}
+                  onOpenDetail={handleOpenDetail}
+                  onUpgradeQuality={handleOpenUpgrade}
+                  hasMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMore}
+                />
+              )}
+            </>
           )}
         </main>
       </div>
 
-      {/* Sticky Batch Action Bar (Admin Only) */}
-      {!isGuest && (
+      {/* Sticky Batch Action Bar (Admin Only, Curation View Only) */}
+      {!isGuest && currentView === 'curation' && (
         <BatchActionBar
           selectedCount={selectedIds.size}
           selectedItems={selectedItems}

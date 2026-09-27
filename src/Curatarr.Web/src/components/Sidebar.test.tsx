@@ -65,6 +65,33 @@ describe('Sidebar component', () => {
     expect(onOpenProtectionRequests).toHaveBeenCalledTimes(1);
   });
 
+  it('calls onChangeView with the correct view name when navigation buttons are clicked', () => {
+    const onChangeView = vi.fn();
+
+    render(
+      <Sidebar
+        currentView="curation"
+        onChangeView={onChangeView}
+        isCollapsed={false}
+        onToggleCollapse={vi.fn()}
+        isMobileOpen={false}
+        onCloseMobile={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Protection Triage/i }));
+    expect(onChangeView).toHaveBeenCalledWith('triage');
+
+    fireEvent.click(screen.getByRole('button', { name: /Audit History/i }));
+    expect(onChangeView).toHaveBeenCalledWith('audit');
+
+    fireEvent.click(screen.getByRole('button', { name: /Settings & Rules/i }));
+    expect(onChangeView).toHaveBeenCalledWith('settings');
+
+    fireEvent.click(screen.getByRole('button', { name: /Library Curation/i }));
+    expect(onChangeView).toHaveBeenCalledWith('curation');
+  });
+
   it('calls onToggleCollapse when collapse button is clicked', () => {
     const onToggleCollapse = vi.fn();
 
