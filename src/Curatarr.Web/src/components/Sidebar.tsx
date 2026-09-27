@@ -111,8 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar Container */}
       <aside
         aria-label="Sidebar navigation"
-        className={`fixed md:sticky top-0 left-0 z-50 h-screen bg-[#070c09] border-r border-[#14231a] flex flex-col justify-between transition-all duration-300 ease-in-out ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed md:sticky top-0 left-0 z-50 h-screen bg-[#070c09] border-r border-[#14231a] flex-col justify-between transition-all duration-300 ease-in-out ${
+          isMobileOpen
+            ? 'flex translate-x-0'
+            : 'hidden md:flex md:translate-x-0'
         } ${isCollapsed ? 'md:w-[68px]' : 'md:w-60'} w-64`}
       >
         {/* Top: Brand Header */}

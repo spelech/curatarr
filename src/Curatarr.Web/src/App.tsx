@@ -251,7 +251,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#040705] text-slate-100 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-[#040705] text-slate-100 flex flex-col md:flex-row font-sans overflow-x-hidden">
       {/* Arr-grade Collapsible Navigation Sidebar */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
