@@ -10,8 +10,8 @@ describe('CuratarrLogo component', () => {
     render(<CuratarrLogo />);
     const logo = screen.getByLabelText('Curatarr Logo');
     expect(logo).toBeDefined();
-    expect(logo.getAttribute('width')).toBe('24');
-    expect(logo.getAttribute('height')).toBe('24');
+    expect(logo.getAttribute('width')).toBe('28');
+    expect(logo.getAttribute('height')).toBe('28');
   });
 
   it('renders custom size and glow styles', () => {

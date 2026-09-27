@@ -127,8 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <div className="h-16 border-b border-[#14231a] px-4 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-[#090e0b] border border-[#14231a] flex items-center justify-center shrink-0 shadow-md shadow-emerald-950/30">
-                <CuratarrLogo size={24} glow />
+              <div className="w-10 h-10 rounded-xl bg-[#090e0b] border border-[#14231a] flex items-center justify-center shrink-0 shadow-md shadow-emerald-950/30">
+                <CuratarrLogo size={28} glow />
               </div>
               {!isCollapsed && (
                 <div className="truncate">

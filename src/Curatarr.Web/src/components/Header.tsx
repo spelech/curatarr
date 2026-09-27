@@ -57,8 +57,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit, onT
           </button>
         )}
 
-        <div className="p-1.5 bg-[#090e0b] border border-[#14231a] rounded-xl flex items-center justify-center shadow-sm">
-          <CuratarrLogo size={22} glow />
+        <div className="w-10 h-10 bg-[#090e0b] border border-[#14231a] rounded-xl flex items-center justify-center shadow-sm shrink-0">
+          <CuratarrLogo size={26} glow />
         </div>
         <div>
           <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
