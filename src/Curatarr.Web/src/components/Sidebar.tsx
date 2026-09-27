@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Layers,
   ShieldCheck,
   History,
   Settings,
@@ -12,6 +11,7 @@ import {
   X,
   Film,
 } from 'lucide-react';
+import { CuratarrLogo } from './CuratarrLogo';
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
@@ -127,8 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <div className="h-16 border-b border-[#14231a] px-4 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-black font-extrabold shadow-lg shadow-emerald-950/40 shrink-0">
-                <Layers className="w-5 h-5 text-[#070c09]" />
+              <div className="w-9 h-9 rounded-xl bg-[#090e0b] border border-[#14231a] flex items-center justify-center shrink-0 shadow-md shadow-emerald-950/30">
+                <CuratarrLogo size={24} glow />
               </div>
               {!isCollapsed && (
                 <div className="truncate">

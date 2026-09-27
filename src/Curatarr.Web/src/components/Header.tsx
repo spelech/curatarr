@@ -1,5 +1,6 @@
 import React from 'react';
-import { Layers, RefreshCw, Settings, History, CheckCircle2, LogOut, User as UserIcon, Eye, ShieldAlert, Menu } from 'lucide-react';
+import { RefreshCw, Settings, History, CheckCircle2, LogOut, User as UserIcon, Eye, ShieldAlert, Menu } from 'lucide-react';
+import { CuratarrLogo } from './CuratarrLogo';
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
@@ -56,8 +57,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit, onT
           </button>
         )}
 
-        <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400">
-          <Layers className="w-5 h-5" />
+        <div className="p-1.5 bg-[#090e0b] border border-[#14231a] rounded-xl flex items-center justify-center shadow-sm">
+          <CuratarrLogo size={22} glow />
         </div>
         <div>
           <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
