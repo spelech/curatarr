@@ -50,7 +50,7 @@ describe('Sidebar component', () => {
     expect(screen.getByText('Curatarr')).toBeDefined();
     expect(screen.getByText('Library Intelligence')).toBeDefined();
     expect(screen.getByText('Library Curation')).toBeDefined();
-    expect(screen.getByText('Protection Triage')).toBeDefined();
+    expect(screen.getByText('Protected Items')).toBeDefined();
     expect(screen.getByText('Audit History')).toBeDefined();
     expect(screen.getByText('Settings & Rules')).toBeDefined();
 
@@ -61,7 +61,7 @@ describe('Sidebar component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Audit History/i }));
     expect(onOpenAudit).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole('button', { name: /Protection Triage/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Protected Items/i }));
     expect(onOpenProtectionRequests).toHaveBeenCalledTimes(1);
   });
 
@@ -79,8 +79,8 @@ describe('Sidebar component', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Protection Triage/i }));
-    expect(onChangeView).toHaveBeenCalledWith('triage');
+    fireEvent.click(screen.getByRole('button', { name: /Protected Items/i }));
+    expect(onChangeView).toHaveBeenCalledWith('protected');
 
     fireEvent.click(screen.getByRole('button', { name: /Audit History/i }));
     expect(onChangeView).toHaveBeenCalledWith('audit');

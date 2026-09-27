@@ -45,8 +45,8 @@ describe('TriagePage component', () => {
   it('renders triage hero metrics and request list items', () => {
     render(<TriagePage />);
 
-    expect(screen.getByText('Protection Triage')).toBeDefined();
-    expect(screen.getByText(/2 Pending/)).toBeDefined();
+    expect(screen.getByText('Protected Items')).toBeDefined();
+    expect(screen.getByText(/2 Waiting/)).toBeDefined();
     expect(screen.getByText('Oppenheimer')).toBeDefined();
     expect(screen.getByText('Severance')).toBeDefined();
     expect(screen.getByText('alice')).toBeDefined();

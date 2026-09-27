@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Layers,
-  ShieldAlert,
+  ShieldCheck,
   History,
   Settings,
   RefreshCw,
@@ -15,7 +15,7 @@ import {
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { useAuthStore } from '../stores/useAuthStore';
 
-export type AppView = 'curation' | 'triage' | 'audit' | 'settings';
+export type AppView = 'curation' | 'protected' | 'triage' | 'audit' | 'settings';
 
 interface SidebarProps {
   currentView?: AppView;
@@ -58,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
       if (view === 'settings') onOpenSettings?.();
       if (view === 'audit') onOpenAudit?.();
-      if (view === 'triage') onOpenProtectionRequests?.();
+      if (view === 'protected' || view === 'triage') onOpenProtectionRequests?.();
     }
     onCloseMobile();
   };
@@ -75,11 +75,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ...(isAdmin
       ? [
           {
-            id: 'triage',
-            label: 'Protection Triage',
-            icon: ShieldAlert,
-            action: () => handleSelectView('triage'),
-            isActive: currentView === 'triage',
+            id: 'protected',
+            label: 'Protected Items',
+            icon: ShieldCheck,
+            action: () => handleSelectView('protected'),
+            isActive: currentView === 'protected' || currentView === 'triage',
             badge: pendingCount > 0 ? pendingCount : null,
             badgeColor: 'bg-emerald-500 text-black',
           },

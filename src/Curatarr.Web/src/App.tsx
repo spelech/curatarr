@@ -8,7 +8,7 @@ import { useSettingsStore } from './stores/useSettingsStore';
 import { Header } from './components/Header';
 import { AppView, Sidebar } from './components/Sidebar';
 import { CategoryTabs } from './components/CategoryTabs';
-import { TriagePage } from './pages/TriagePage';
+import { ProtectedItemsPage } from './pages/ProtectedItemsPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ControlBar } from './components/ControlBar';
@@ -266,7 +266,7 @@ export default function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onOpenSettings={() => !isGuest && setCurrentView('settings')}
         onOpenAudit={() => !isGuest && setCurrentView('audit')}
-        onOpenProtectionRequests={() => !isGuest && setCurrentView('triage')}
+        onOpenProtectionRequests={() => !isGuest && setCurrentView('protected')}
       />
 
       {/* Main Content Area */}
@@ -299,8 +299,8 @@ export default function App() {
 
         {/* Main App Container */}
         <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-5 space-y-4">
-          {currentView === 'triage' && !isGuest ? (
-            <TriagePage onOpenDetail={(item) => setDetailItem(item)} />
+          {(currentView === 'protected' || currentView === 'triage') && !isGuest ? (
+            <ProtectedItemsPage onOpenDetail={(item) => setDetailItem(item)} />
           ) : currentView === 'audit' && !isGuest ? (
             <AuditPage />
           ) : currentView === 'settings' && !isGuest ? (
