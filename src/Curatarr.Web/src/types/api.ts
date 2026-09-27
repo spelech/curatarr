@@ -168,3 +168,23 @@ export interface CuratarrSettings {
   authEnabled?: boolean;
   adminUsernames?: string;
 }
+
+export interface QualityProfile {
+  id: number;
+  name: string;
+}
+
+export interface UpgradeQualityRequest {
+  connectionId: string;
+  qualityProfileId: number;
+  triggerSearch: boolean;
+}
+
+export interface UpgradeQualityResult {
+  success: boolean;
+  message: string;
+  externalId?: number;
+  qualityProfileName?: string;
+  searchTriggered: boolean;
+}
+

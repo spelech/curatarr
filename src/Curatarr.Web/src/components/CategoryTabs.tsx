@@ -14,7 +14,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useCatalogStore } from '../stores/useCatalogStore';
-import { useSettingsStore } from '../stores/useSettingsStore';
+import { useSettingsStore, DEFAULT_SETTINGS } from '../stores/useSettingsStore';
 
 export const CategoryTabs: React.FC = () => {
   const { categories, selectedCategory, setSelectedCategory, setIsCriteriaModalOpen } = useCatalogStore();
@@ -51,10 +51,10 @@ export const CategoryTabs: React.FC = () => {
   };
 
   const getCategoryTooltip = (categoryId: string) => {
-    const neverWatchedDays = settings?.neverWatchedMinAgeDays ?? 90;
-    const staleDays = settings?.staleDays ?? 180;
-    const abandonedDays = settings?.abandonedDays ?? 90;
-    const sub720pYear = settings?.sub720pCutoffYear ?? 2000;
+    const neverWatchedDays = settings?.neverWatchedMinAgeDays ?? DEFAULT_SETTINGS.neverWatchedMinAgeDays;
+    const staleDays = settings?.staleDays ?? DEFAULT_SETTINGS.staleDays;
+    const abandonedDays = settings?.abandonedDays ?? DEFAULT_SETTINGS.abandonedDays;
+    const sub720pYear = settings?.sub720pCutoffYear ?? DEFAULT_SETTINGS.sub720pCutoffYear ?? 2000;
 
     switch (categoryId) {
       case 'never_watched':

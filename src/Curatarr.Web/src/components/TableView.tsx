@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Film, Tv, Shield, Trash2, History } from 'lucide-react';
+import { Film, Tv, Shield, Trash2, History, ArrowUpCircle } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { getInstanceBadge, itemPredatesWatchHistory, getBadgeStyle } from '../utils/badgeUtils';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -13,6 +13,7 @@ interface TableViewProps {
   onToggleProtect: (id: string, isProtected: boolean) => void;
   onPrune: (item: MediaItem, seasonNumber?: number, targetConnectionIds?: string[]) => void;
   onOpenDetail: (item: MediaItem) => void;
+  onUpgradeQuality?: (item: MediaItem) => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
@@ -25,6 +26,7 @@ interface TableRowProps {
   onToggleProtect: (id: string, isProtected: boolean) => void;
   onPrune: (item: MediaItem, seasonNumber?: number, targetConnectionIds?: string[]) => void;
   onOpenDetail: (item: MediaItem) => void;
+  onUpgradeQuality?: (item: MediaItem) => void;
   formatSize: (bytes: number) => string;
   getLastPlayed: (item: MediaItem) => string;
   formatDate: (dateStr?: string) => string;
@@ -38,6 +40,7 @@ const TableRow = React.memo<TableRowProps>(
     onToggleProtect,
     onPrune,
     onOpenDetail,
+    onUpgradeQuality,
     formatSize,
     getLastPlayed,
     formatDate,
@@ -187,6 +190,19 @@ const TableRow = React.memo<TableRowProps>(
               <Shield className="w-3.5 h-3.5" />
             </button>
             {!isGuest && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpgradeQuality?.(item);
+                }}
+                className="p-1.5 rounded text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 transition min-w-[28px] min-h-[28px] flex items-center justify-center"
+                title="Upgrade quality profile & search"
+                aria-label="Upgrade quality"
+              >
+                <ArrowUpCircle className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {!isGuest && (
               <div className="relative inline-block">
                 <button
                   onClick={(e) => {
@@ -272,6 +288,7 @@ export const TableView: React.FC<TableViewProps> = ({
   onToggleProtect,
   onPrune,
   onOpenDetail,
+  onUpgradeQuality,
   hasMore = false,
   isLoadingMore = false,
   onLoadMore,
@@ -334,8 +351,8 @@ export const TableView: React.FC<TableViewProps> = ({
     // 7. Added: Monospace date "Sep 15, 2024" (12 chars @ text-[11px] ~6.6px) + 24px padding = ~103px -> 112px
     const added = Math.max(112, Math.ceil(12 * 6.6 + CELL_PADDING_PX));
 
-    // 8. Actions: Two 28px touch targets + 6px gap + 24px padding = 86px -> 88px
-    const actions = 88;
+    // 8. Actions: Three 28px touch targets + 2x6px gap + 24px padding = ~120px
+    const actions = 120;
 
     // 9. Title minimum width: poster 28px + 10px gap + 15 chars text + pre-2017 badge = ~220px
     const titleMin = 220;
@@ -461,6 +478,7 @@ export const TableView: React.FC<TableViewProps> = ({
                     onToggleProtect={onToggleProtect}
                     onPrune={onPrune}
                     onOpenDetail={onOpenDetail}
+                    onUpgradeQuality={onUpgradeQuality}
                     formatSize={formatSize}
                     getLastPlayed={getLastPlayed}
                     formatDate={formatDate}

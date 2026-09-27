@@ -69,6 +69,16 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers.Expires = "0";
+    }
+    await next();
+});
 app.UseStaticFiles();
 
 // Active SSE Connections tracking for MCP

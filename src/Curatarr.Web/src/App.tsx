@@ -4,6 +4,7 @@ import { useCatalogStore } from './stores/useCatalogStore';
 import { useConnectionStore } from './stores/useConnectionStore';
 import { useToastStore } from './stores/useToastStore';
 import { useAuthStore } from './stores/useAuthStore';
+import { useSettingsStore } from './stores/useSettingsStore';
 import { Header } from './components/Header';
 import { CategoryTabs } from './components/CategoryTabs';
 import { ControlBar } from './components/ControlBar';
@@ -14,6 +15,7 @@ import { PruneConfirmModal } from './components/PruneConfirmModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AuditLogModal } from './components/AuditLogModal';
 import { MediaDetailModal } from './components/MediaDetailModal';
+import { QualityUpgradeModal } from './components/QualityUpgradeModal';
 import { CategoryCriteriaModal } from './components/CategoryCriteriaModal';
 import { ProtectionRequestsModal } from './components/ProtectionRequestsModal';
 import { LoginModal } from './components/LoginModal';
@@ -50,6 +52,8 @@ export default function App() {
   const connections = useConnectionStore((state) => state.connections);
   const fetchConnections = useConnectionStore((state) => state.fetchConnections);
 
+  const fetchSettings = useSettingsStore((state) => state.fetchSettings);
+
   const user = useAuthStore((state) => state.user);
   const isPreviewingAsGuest = useAuthStore((state) => state.isPreviewingAsGuest);
   const setPreviewAsGuest = useAuthStore((state) => state.setPreviewAsGuest);
@@ -71,6 +75,22 @@ export default function App() {
     isOpen: false,
     items: [],
   });
+  const [upgradeModalState, setUpgradeModalState] = useState<{
+    isOpen: boolean;
+    item: MediaItem | null;
+    instanceId?: string;
+  }>({
+    isOpen: false,
+    item: null,
+  });
+
+  const handleOpenUpgrade = useCallback((item: MediaItem, instanceId?: string) => {
+    setUpgradeModalState({
+      isOpen: true,
+      item,
+      instanceId,
+    });
+  }, []);
 
   useEffect(() => {
     checkAuth();
@@ -78,7 +98,8 @@ export default function App() {
     fetchUsers();
     fetchItems();
     fetchConnections();
-  }, [checkAuth, fetchCategories, fetchUsers, fetchItems, fetchConnections]);
+    fetchSettings();
+  }, [checkAuth, fetchCategories, fetchUsers, fetchItems, fetchConnections, fetchSettings]);
 
   const selectedItems = items.filter((i) => selectedIds.has(i.id));
 
@@ -264,6 +285,7 @@ export default function App() {
             onToggleProtect={toggleProtect}
             onPrune={handleOpenSinglePrune}
             onOpenDetail={handleOpenDetail}
+            onUpgradeQuality={handleOpenUpgrade}
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
@@ -276,6 +298,7 @@ export default function App() {
             onToggleProtect={toggleProtect}
             onPrune={handleOpenSinglePrune}
             onOpenDetail={handleOpenDetail}
+            onUpgradeQuality={handleOpenUpgrade}
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
@@ -309,7 +332,18 @@ export default function App() {
           setDetailItem(null);
           handleOpenSinglePrune(item, seasonNum, targetConnectionIds);
         }}
+        onUpgradeQuality={handleOpenUpgrade}
       />
+
+      {/* Quality Profile Upgrade & Automatic Search Modal */}
+      {!isGuest && (
+        <QualityUpgradeModal
+          isOpen={upgradeModalState.isOpen}
+          onClose={() => setUpgradeModalState({ isOpen: false, item: null })}
+          item={upgradeModalState.item}
+          initialInstanceId={upgradeModalState.instanceId}
+        />
+      )}
 
       {/* Prune Confirmation Modal */}
       {!isGuest && (

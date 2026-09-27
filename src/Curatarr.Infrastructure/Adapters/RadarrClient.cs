@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Curatarr.Core.Adapters;
@@ -136,5 +137,54 @@ public class RadarrClient : IRadarrClient
         using var req = CreateRequest(HttpMethod.Delete, url, connection.ApiKey);
         using var res = await _httpClient.SendAsync(req, ct);
         res.EnsureSuccessStatusCode();
+    }
+
+    public async Task<IReadOnlyList<QualityProfileDto>> GetQualityProfilesAsync(ServiceConnection connection, CancellationToken ct = default)
+    {
+        var baseUrl = connection.BaseUrl.TrimEnd('/');
+        using var req = CreateRequest(HttpMethod.Get, $"{baseUrl}/api/v3/qualityprofile", connection.ApiKey);
+        using var res = await _httpClient.SendAsync(req, ct);
+        res.EnsureSuccessStatusCode();
+
+        using var stream = await res.Content.ReadAsStreamAsync(ct);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+        var list = new List<QualityProfileDto>();
+        foreach (var el in doc.RootElement.EnumerateArray())
+        {
+            var id = el.GetProperty("id").GetInt32();
+            var name = el.GetProperty("name").GetString() ?? $"Profile {id}";
+            list.Add(new QualityProfileDto(id, name));
+        }
+        return list;
+    }
+
+    public async Task<bool> UpdateQualityProfileAsync(ServiceConnection connection, int movieId, int qualityProfileId, CancellationToken ct = default)
+    {
+        var baseUrl = connection.BaseUrl.TrimEnd('/');
+        using var req = CreateRequest(HttpMethod.Put, $"{baseUrl}/api/v3/movie/editor", connection.ApiKey);
+        req.Content = JsonContent.Create(new
+        {
+            movieIds = new[] { movieId },
+            qualityProfileId = qualityProfileId,
+            monitored = true
+        });
+
+        using var res = await _httpClient.SendAsync(req, ct);
+        return res.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SearchMovieAsync(ServiceConnection connection, int movieId, CancellationToken ct = default)
+    {
+        var baseUrl = connection.BaseUrl.TrimEnd('/');
+        using var req = CreateRequest(HttpMethod.Post, $"{baseUrl}/api/v3/command", connection.ApiKey);
+        req.Content = JsonContent.Create(new
+        {
+            name = "MoviesSearch",
+            movieIds = new[] { movieId }
+        });
+
+        using var res = await _httpClient.SendAsync(req, ct);
+        return res.IsSuccessStatusCode;
     }
 }

@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { CategorySummary, MediaItem, TautulliUser, PendingProtectionRequest } from '../types/api';
+import {
+  CategorySummary,
+  MediaItem,
+  TautulliUser,
+  PendingProtectionRequest,
+  QualityProfile,
+  UpgradeQualityRequest,
+  UpgradeQualityResult,
+} from '../types/api';
 import { useAuthStore } from './useAuthStore';
 
 interface CatalogState {
@@ -63,6 +71,8 @@ interface CatalogState {
   triggerSync: () => Promise<void>;
   refreshPlex: () => Promise<{ success: boolean; message: string }>;
   executePrune: (params: { mediaItemId: string; seasonNumber?: number; targetConnectionIds: string[]; addImportExclusion: boolean }) => Promise<{ success: boolean; message: string; bytesFreed: number }>;
+  fetchQualityProfiles: (connectionId: string) => Promise<QualityProfile[]>;
+  upgradeQuality: (mediaItemId: string, request: UpgradeQualityRequest) => Promise<UpgradeQualityResult>;
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
@@ -483,6 +493,60 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       return { success: false, message: data.message || 'Prune rejected', bytesFreed: 0 };
     } catch (e: unknown) {
       return { success: false, message: (e as Error).message || 'Network error', bytesFreed: 0 };
+    }
+  },
+
+  fetchQualityProfiles: async (connectionId: string) => {
+    try {
+      const res = await fetch(`/api/v1/connections/${encodeURIComponent(connectionId)}/quality-profiles`);
+      if (res.ok) {
+        return (await res.json()) as QualityProfile[];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
+  upgradeQuality: async (mediaItemId: string, request: UpgradeQualityRequest) => {
+    try {
+      const res = await fetch(`/api/v1/media/${encodeURIComponent(mediaItemId)}/upgrade-quality`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Update local item instance quality profile name if available
+        if (data.qualityProfileName) {
+          set((state) => ({
+            items: state.items.map((item) => {
+              if (item.id !== mediaItemId) return item;
+              return {
+                ...item,
+                instances: item.instances.map((inst) =>
+                  inst.connectionId === request.connectionId
+                    ? { ...inst, qualityProfileName: data.qualityProfileName }
+                    : inst
+                ),
+              };
+            }),
+          }));
+        }
+        return data as UpgradeQualityResult;
+      }
+      return {
+        success: false,
+        message: data.error || data.message || 'Failed to update quality profile',
+        searchTriggered: false,
+      };
+    } catch (e: unknown) {
+      return {
+        success: false,
+        message: e instanceof Error ? e.message : 'Network error upgrading quality profile',
+        searchTriggered: false,
+      };
     }
   },
 }));

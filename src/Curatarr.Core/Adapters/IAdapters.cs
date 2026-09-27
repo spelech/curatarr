@@ -15,6 +15,9 @@ public interface ISonarrClient
     Task DeleteSeriesAsync(ServiceConnection connection, int seriesId, bool deleteFiles, bool addImportExclusion, CancellationToken ct = default);
     Task DeleteEpisodeFilesAsync(ServiceConnection connection, IEnumerable<int> episodeFileIds, CancellationToken ct = default);
     Task UnmonitorSeasonAsync(ServiceConnection connection, int seriesId, int seasonNumber, CancellationToken ct = default);
+    Task<IReadOnlyList<QualityProfileDto>> GetQualityProfilesAsync(ServiceConnection connection, CancellationToken ct = default);
+    Task<bool> UpdateQualityProfileAsync(ServiceConnection connection, int seriesId, int qualityProfileId, CancellationToken ct = default);
+    Task<bool> SearchSeriesAsync(ServiceConnection connection, int seriesId, CancellationToken ct = default);
 }
 
 public interface IRadarrClient
@@ -22,6 +25,9 @@ public interface IRadarrClient
     Task<IReadOnlyList<RadarrMovieDto>> GetMoviesAsync(ServiceConnection connection, CancellationToken ct = default);
     Task<HashSet<int>> GetCutoffUnmetMovieIdsAsync(ServiceConnection connection, CancellationToken ct = default);
     Task DeleteMovieAsync(ServiceConnection connection, int movieId, bool deleteFiles, bool addImportExclusion, CancellationToken ct = default);
+    Task<IReadOnlyList<QualityProfileDto>> GetQualityProfilesAsync(ServiceConnection connection, CancellationToken ct = default);
+    Task<bool> UpdateQualityProfileAsync(ServiceConnection connection, int movieId, int qualityProfileId, CancellationToken ct = default);
+    Task<bool> SearchMovieAsync(ServiceConnection connection, int movieId, CancellationToken ct = default);
 }
 
 public interface ITautulliClient

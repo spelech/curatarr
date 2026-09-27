@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Clock,
   History,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { MediaItem } from '../types/api';
 import { getInstanceTitle, getBadgeStyle, itemPredatesWatchHistory } from '../utils/badgeUtils';
@@ -27,6 +28,7 @@ interface MediaDetailModalProps {
   onClose: () => void;
   onToggleProtect: (mediaItemId: string, isProtected: boolean, reason?: string) => void;
   onPrune: (item: MediaItem, seasonNumber?: number, targetConnectionIds?: string[]) => void;
+  onUpgradeQuality?: (item: MediaItem, instanceId?: string) => void;
 }
 
 export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
@@ -35,6 +37,7 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
   onClose,
   onToggleProtect,
   onPrune,
+  onUpgradeQuality,
 }) => {
   const user = useAuthStore((s) => s.user);
   const isPreviewingAsGuest = useAuthStore((s) => s.isPreviewingAsGuest);
@@ -431,8 +434,18 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className="font-mono text-slate-300">{formatSize(inst.sizeBytes)}</div>
+                      {!isGuest && (
+                        <button
+                          onClick={() => onUpgradeQuality?.(currentItem, inst.id)}
+                          title="Upgrade quality profile & search"
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 hover:border-sky-500/50 transition flex items-center gap-1.5"
+                        >
+                          <ArrowUpCircle className="w-3.5 h-3.5" />
+                          <span>Upgrade</span>
+                        </button>
+                      )}
                       {!isGuest && (
                         <button
                           onClick={() => onPrune(currentItem, undefined, [inst.connectionId])}
@@ -452,7 +465,8 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
                       <Folder className="w-3 h-3 text-slate-500 shrink-0" />
                       <span className="truncate">{inst.diskPath || 'No path available'}</span>
                     </div>
-                    <div className="flex items-center gap-3 sm:justify-end">
+                    <div className="flex items-center gap-3 sm:justify-end flex-wrap">
+                      <span>Profile: <b className="text-sky-300 font-medium">{inst.qualityProfileName || 'Default'}</b></span>
                       <span>Monitored: <b className={inst.isMonitored ? 'text-emerald-400' : 'text-slate-500'}>{inst.isMonitored ? 'Yes' : 'No'}</b></span>
                       <span>Has File: <b className={inst.hasFile ? 'text-emerald-400' : 'text-slate-500'}>{inst.hasFile ? 'Yes' : 'No'}</b></span>
                       <span>External ID: <b className="font-mono text-slate-300">{inst.externalId}</b></span>
