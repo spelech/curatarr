@@ -255,7 +255,7 @@ describe('Guest View Mode & Protection Requests Component Tests', () => {
 
       // Admin initially sees Settings and View as Guest
       expect(screen.getByText('Settings')).toBeDefined();
-      expect(screen.getByText('Audit Log')).toBeDefined();
+      expect(screen.getByText('Sync Now')).toBeDefined();
       const toggleBtn = screen.getByText('View as Guest');
       expect(toggleBtn).toBeDefined();
 
@@ -265,9 +265,9 @@ describe('Guest View Mode & Protection Requests Component Tests', () => {
 
       rerender(<Header onOpenSettings={vi.fn()} onOpenAudit={vi.fn()} />);
 
-      // Now in guest preview: Settings & Audit Log are hidden
+      // Now in guest preview: Settings & Sync Now are hidden
       expect(screen.queryByText('Settings')).toBeNull();
-      expect(screen.queryByText('Audit Log')).toBeNull();
+      expect(screen.queryByText('Sync Now')).toBeNull();
       expect(screen.getByText('Guest (Preview)')).toBeDefined();
       expect(screen.getByText('Exit Guest View')).toBeDefined();
 

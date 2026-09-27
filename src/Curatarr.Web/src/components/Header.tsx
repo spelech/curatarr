@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Settings, History, CheckCircle2, LogOut, User as UserIcon, Eye, ShieldAlert, Menu } from 'lucide-react';
+import { RefreshCw, Settings, CheckCircle2, LogOut, User as UserIcon, Eye, ShieldAlert, Menu } from 'lucide-react';
 import { CuratarrLogo } from './CuratarrLogo';
 import { useCatalogStore } from '../stores/useCatalogStore';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -10,7 +10,7 @@ interface HeaderProps {
   onToggleMobileSidebar?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit, onToggleMobileSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onToggleMobileSidebar }) => {
   const isSyncing = useCatalogStore((s) => s.isSyncing);
   const triggerSync = useCatalogStore((s) => s.triggerSync);
   const prunedNotification = useCatalogStore((s) => s.prunedNotification);
@@ -144,13 +144,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings, onOpenAudit, onT
               </button>
             )}
 
-            <button
-              onClick={onOpenAudit}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-[#0f1a14] hover:bg-[#14231a] text-slate-300 border border-[#14231a] transition cursor-pointer"
-            >
-              <History className="w-3.5 h-3.5 text-slate-400" />
-              Audit Log
-            </button>
 
             <button
               onClick={onOpenSettings}
