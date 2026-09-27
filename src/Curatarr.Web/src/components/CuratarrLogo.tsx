@@ -28,7 +28,7 @@ export const CuratarrLogo: React.FC<CuratarrLogoProps> = ({
       {...props}
     >
       <defs>
-        <linearGradient id={primaryGradId} x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+        <linearGradient id={primaryGradId} x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#34d399" />
           <stop offset="60%" stopColor="#10b981" />
           <stop offset="100%" stopColor="#047857" />
@@ -40,49 +40,75 @@ export const CuratarrLogo: React.FC<CuratarrLogoProps> = ({
         </radialGradient>
       </defs>
 
-      {/* Bold Monogram 'C' Outer Film Reel Track */}
-      <path
-        d="M 23.5 8.5 A 11.5 11.5 0 1 0 23.5 23.5"
-        stroke={`url(#${primaryGradId})`}
-        strokeWidth="4.5"
-        strokeLinecap="round"
+      {/* Outer Reel Flange Rim */}
+      <circle cx="16" cy="16" r="14" stroke={`url(#${primaryGradId})`} strokeWidth="2.5" />
+
+      {/* Inner Concentric Film Guide Track */}
+      <circle
+        cx="16"
+        cy="16"
+        r="11.5"
+        stroke="#059669"
+        strokeWidth="1"
+        strokeDasharray="2 2"
+        opacity="0.6"
       />
 
-      {/* Central Film Spool Hub with Axle Spindle */}
-      <circle cx="16" cy="16" r="4.5" fill={`url(#${hubGradId})`} />
-      <circle cx="16" cy="16" r="2.2" fill="#040705" />
-
-      {/* 3 Bold Structural Radial Spokes connecting Hub to C-Track */}
-      {/* Upper Spoke */}
+      {/* 5 Classic Hollywood Reel Spokes */}
+      {/* 1. Straight Up */}
       <line
-        x1="12.8"
-        y1="12.8"
-        x2="7.5"
-        y2="7.5"
-        stroke={`url(#${primaryGradId})`}
-        strokeWidth="2.8"
-        strokeLinecap="round"
-      />
-      {/* Middle Horizontal Spoke */}
-      <line
-        x1="11.5"
+        x1="16"
         y1="16"
-        x2="5.2"
-        y2="16"
+        x2="16"
+        y2="3"
         stroke={`url(#${primaryGradId})`}
-        strokeWidth="2.8"
+        strokeWidth="2.2"
         strokeLinecap="round"
       />
-      {/* Lower Spoke */}
+      {/* 2. Top-Right */}
       <line
-        x1="12.8"
-        y1="19.2"
-        x2="7.5"
-        y2="24.5"
+        x1="16"
+        y1="16"
+        x2="28.4"
+        y2="12"
         stroke={`url(#${primaryGradId})`}
-        strokeWidth="2.8"
+        strokeWidth="2.2"
         strokeLinecap="round"
       />
+      {/* 3. Bottom-Right */}
+      <line
+        x1="16"
+        y1="16"
+        x2="23.6"
+        y2="26.8"
+        stroke={`url(#${primaryGradId})`}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      {/* 4. Bottom-Left */}
+      <line
+        x1="16"
+        y1="16"
+        x2="8.4"
+        y2="26.8"
+        stroke={`url(#${primaryGradId})`}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      {/* 5. Top-Left */}
+      <line
+        x1="16"
+        y1="16"
+        x2="3.6"
+        y2="12"
+        stroke={`url(#${primaryGradId})`}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+
+      {/* Central Film Spool Hub & Projector Spindle */}
+      <circle cx="16" cy="16" r="4.5" fill={`url(#${hubGradId})`} />
+      <circle cx="16" cy="16" r="2" fill="#040705" />
     </svg>
   );
 };
