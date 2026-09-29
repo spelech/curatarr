@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-09-28
+
+### Fixed
+- **Plex Server Auto-Healing & Binding**:
+  - Automatically auto-heals and binds existing Plex service connections on `/api/v1/plex/status` by resolving the server's machine identifier via local `/identity` endpoint.
+  - Prevents first-run onboarding modal from popping up unnecessarily for pre-existing configured servers.
+- **Plex Server Discovery Resiliency**:
+  - `GetDiscoveredServersAsync` now falls back to any configured Plex connection's API key if `settings.PlexAuthToken` is empty.
+  - Queries local Plex connections directly to ensure local servers are always available and discovered even during Plex.tv network hiccups.
+  - Supports optional query token parameter in `/api/v1/plex/servers`.
+- **Onboarding Modal Recovery**:
+  - Added inline "Link Plex Account" action and streamlined manual fallback in `PlexOnboardingModal` when no cloud servers are returned.
+
 ## [2.0.0] - 2026-09-28
 
 ### Added
