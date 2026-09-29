@@ -1,0 +1,56 @@
+name: Bug Report
+description: Report an issue or bug in Curatarr
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: ["spelech"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue!
+        *(Note: Issues may be reviewed by maintainers and Google Jules / automated AI reviewers)*
+  - type: input
+    id: version
+    attributes:
+      label: Curatarr Version
+      description: What version or Docker image tag are you running? (e.g. ghcr.io/spelech/curatarr:latest, v1.5.0)
+      placeholder: "latest"
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Deployment Platform
+      options:
+        - Docker Compose (Linux)
+        - Unraid / TrueNAS / Synology
+        - Docker Desktop (Windows / macOS)
+        - Kubernetes
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: services
+    attributes:
+      label: Connected Services Involved
+      multiple: true
+      options:
+        - Plex Media Server
+        - Radarr
+        - Sonarr
+        - Tautulli
+        - Overseerr / Jellyseerr
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description & Steps to Reproduce
+      description: What happened and how can we reproduce it?
+      placeholder: 1. Go to '...' 2. Click on '...' 3. Observe error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Container / Console Logs
+      description: Output from `docker logs curatarr` or browser DevTools console.
+      render: text

@@ -1,6 +1,13 @@
 # Curatarr
 
+[![Documentation](https://img.shields.io/badge/docs-GitHub_Pages-059669?style=flat-square&logo=gitbook&logoColor=white)](https://spelech.github.io/curatarr/)
+[![CI Quality Gates](https://img.shields.io/github/actions/workflow/status/spelech/curatarr/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/spelech/curatarr/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://github.com/spelech/curatarr/blob/main/LICENSE)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io%2Fspelech%2Fcuratarr-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/spelech/curatarr/pkgs/container/curatarr)
+
 Curatarr is a media curation and library cleanup system. It connects to Plex, Tautulli, Sonarr, Radarr, and Overseerr. It finds unwatched media, calculates disk usage, and helps users remove unwanted files safely.
+
+📖 **Full Documentation & Guides**: [https://spelech.github.io/curatarr/](https://spelech.github.io/curatarr/)
 
 ![Curatarr Grid View](docs/assets/screenshots/curatarr-grid-view.png)
 

@@ -1,0 +1,73 @@
+version: 2
+updates:
+  # 1. .NET Solution & NuGet dependencies
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      dotnet-dependencies:
+        patterns:
+          - "*"
+
+  # 2. Frontend React 19 UI
+  - package-ecosystem: "npm"
+    directory: "/src/Curatarr.Web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
+
+  # 3. VitePress Documentation
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      docs-dependencies:
+        patterns:
+          - "*"
+
+  # 4. Playwright End-to-End Tests
+  - package-ecosystem: "npm"
+    directory: "/tests/Curatarr.E2E"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      e2e-dependencies:
+        patterns:
+          - "*"
+
+  # 5. GitHub Actions Workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      actions-dependencies:
+        patterns:
+          - "*"
+
+  # 6. Dockerfile Base Images
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      docker-dependencies:
+        patterns:
+          - "*"

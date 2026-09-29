@@ -1,0 +1,31 @@
+name: Feature Request
+description: Suggest an enhancement or new feature for Curatarr
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees: ["spelech"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Curatarr!
+        *(Note: Feature requests are reviewed by maintainers and Google Jules / automated triage assistants)*
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: Is your request related to a problem or missing capability?
+      placeholder: I'm frustrated when managing my library because...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or workarounds you've considered.
