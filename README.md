@@ -193,6 +193,8 @@ Curatarr uses a modern two-tier architecture:
          - "8909:8080"
        volumes:
          - ./data:/app/data
+         # Optional: mount docker socket to enable one-click local Arr auto-discovery
+         # - /var/run/docker.sock:/var/run/docker.sock:ro
        environment:
          - TZ=America/Chicago
        restart: unless-stopped
@@ -288,6 +290,14 @@ npm run dev
 ```bash
 docker build -t ghcr.io/spelech/curatarr:latest .
 ```
+
+---
+
+## Acknowledgments
+
+Curatarr was built with appreciation for existing tools and pioneers in the self-hosted media management ecosystem:
+- [Maintainerr](https://github.com/jorenn92/Maintainerr): A powerful tool for automated, complex rule-based media cleanup and collection maintenance.
+- [Shelflife](https://github.com/fauxvo/shelflife): An awesome companion for user-driven media review and deletion prioritization.
 
 ---
 
