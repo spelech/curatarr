@@ -603,6 +603,157 @@ public class AuthAndGuestViewTests : IDisposable
         result.User.Role.Should().Be(UserRole.Admin);
     }
 
+    [Fact]
+    public async Task PlexAuthService_GetDiscoveredServers_WhenTokenMissing_ReturnsEmptyList()
+    {
+        await _initializer.InitializeAsync();
+        var currentSettings = await _settingsRepo.GetSettingsAsync();
+        await _settingsRepo.SaveSettingsAsync(currentSettings with { PlexAuthToken = "" });
+
+        var authService = new PlexAuthService(new HttpClient(), _userRepo, _settingsRepo, _connRepo);
+        var servers = await authService.GetDiscoveredServersAsync();
+        servers.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PlexAuthService_GetDiscoveredServers_WithPlexResourcesJson_ParsesServersAndConnectionsAccurately()
+    {
+        await _initializer.InitializeAsync();
+        var currentSettings = await _settingsRepo.GetSettingsAsync();
+        await _settingsRepo.SaveSettingsAsync(currentSettings with { PlexAuthToken = "admin-plex-token-xyz" });
+
+        var mockHttp = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri?.ToString() ?? "";
+            if (url.Contains("/api/v2/resources"))
+            {
+                // Verify request headers
+                req.Headers.Contains("X-Plex-Token").Should().BeTrue();
+                req.Headers.GetValues("X-Plex-Token").First().Should().Be("admin-plex-token-xyz");
+                req.Headers.Accept.ToString().Should().Contain("application/json");
+
+                var json = @"[
+                    {
+                        ""name"": ""Plex Web Client"",
+                        ""clientIdentifier"": ""web-client-id"",
+                        ""provides"": ""client,player"",
+                        ""owned"": true
+                    },
+                    {
+                        ""name"": ""Titan Media"",
+                        ""clientIdentifier"": ""titan-machine-id-123"",
+                        ""provides"": ""server"",
+                        ""owned"": true,
+                        ""accessToken"": ""server-access-tok-456"",
+                        ""connections"": [
+                            {
+                                ""uri"": ""http://192.168.1.100:32400"",
+                                ""address"": ""192.168.1.100"",
+                                ""port"": 32400,
+                                ""protocol"": ""http"",
+                                ""local"": true
+                            },
+                            {
+                                ""uri"": ""https://192-168-1-100.abcdef.plex.direct:32400"",
+                                ""address"": ""192.168.1.100"",
+                                ""port"": 32400,
+                                ""protocol"": ""https"",
+                                ""local"": false
+                            }
+                        ]
+                    }
+                ]";
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(json)
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(mockHttp);
+        var authService = new PlexAuthService(httpClient, _userRepo, _settingsRepo, _connRepo);
+
+        var servers = await authService.GetDiscoveredServersAsync();
+        servers.Should().HaveCount(1); // web client filtered out because provides does not contain 'server'
+
+        var server = servers[0];
+        server.Name.Should().Be("Titan Media");
+        server.ClientIdentifier.Should().Be("titan-machine-id-123");
+        server.Owned.Should().BeTrue();
+        server.AccessToken.Should().Be("server-access-tok-456");
+        server.Connections.Should().HaveCount(2);
+
+        var localConn = server.Connections.First(c => c.Local);
+        localConn.Uri.Should().Be("http://192.168.1.100:32400");
+        localConn.Address.Should().Be("192.168.1.100");
+        localConn.Port.Should().Be(32400);
+        localConn.Protocol.Should().Be("http");
+        localConn.Local.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PlexAuthService_ClaimPin_WhenMatchesSettingsPlexServerMachineId_ShouldGrantAccessAndPromoteOwner()
+    {
+        await _initializer.InitializeAsync();
+
+        // Seed 1 existing user so totalUsers > 0 (subsequent logins must be validated against server)
+        await _userRepo.UpsertAsync(new User { Id = "seed-admin", PlexId = "p-admin", Username = "PrimaryAdmin", Role = UserRole.Admin });
+
+        // Set bound PlexServerMachineId in settings
+        var settings = await _settingsRepo.GetSettingsAsync();
+        await _settingsRepo.SaveSettingsAsync(settings with { PlexServerMachineId = "bound-machine-789" });
+
+        var mockHttp = new MockHttpMessageHandler(req =>
+        {
+            var url = req.RequestUri?.ToString() ?? "";
+            if (url.Contains("/api/v2/pins/2001"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 2001, \"code\": \"JOIN-9999\", \"authToken\": \"co-owner-tok\"}")
+                };
+            }
+            if (url.Contains("/api/v2/user"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\": 777, \"username\": \"CoOwnerBob\", \"email\": \"bob@home.local\", \"thumb\": null}")
+                };
+            }
+            if (url.Contains("/api/v2/resources"))
+            {
+                // Returns resources including the bound server identifier where owned = true
+                var json = @"[
+                    {
+                        ""name"": ""Family Plex"",
+                        ""clientIdentifier"": ""bound-machine-789"",
+                        ""provides"": ""server"",
+                        ""owned"": true
+                    }
+                ]";
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(json)
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        var httpClient = new HttpClient(mockHttp);
+        var authService = new PlexAuthService(httpClient, _userRepo, _settingsRepo, _connRepo);
+
+        var result = await authService.ClaimPinAsync(2001);
+        result.Claimed.Should().BeTrue();
+        result.User.Should().NotBeNull();
+        result.User!.Username.Should().Be("CoOwnerBob");
+        result.User.Role.Should().Be(UserRole.Admin); // Promoted to Admin because owned == true
+
+        // Verify that Admin's PlexAuthToken was saved to settings
+        var updatedSettings = await _settingsRepo.GetSettingsAsync();
+        updatedSettings.PlexAuthToken.Should().Be("co-owner-tok");
+    }
+
     private class MockHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
