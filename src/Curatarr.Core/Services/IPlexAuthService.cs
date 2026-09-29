@@ -28,7 +28,8 @@ public interface IPlexAuthService
 {
     Task<PlexPinResponse> CreatePinAsync(CancellationToken ct = default);
     Task<PlexClaimResult> ClaimPinAsync(int pinId, CancellationToken ct = default);
-    Task<IReadOnlyList<PlexServerResourceDto>> GetDiscoveredServersAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PlexServerResourceDto>> GetDiscoveredServersAsync(string? authToken = null, CancellationToken ct = default);
+    Task<string?> FetchMachineIdentifierAsync(ServiceConnection conn, CancellationToken ct = default);
     string CreateSessionToken(User user, string secret);
     UserSession? ValidateSessionToken(string token, string secret);
     Task<string> GetOrCreateSessionSecretAsync(CancellationToken ct = default);

@@ -20,7 +20,7 @@ interface SettingsState {
   fetchSettings: () => Promise<void>;
   saveSettings: (settings: CuratarrSettings) => Promise<boolean>;
   fetchPlexStatus: () => Promise<PlexBindingStatus | null>;
-  fetchDiscoveredPlexServers: () => Promise<PlexServerResource[]>;
+  fetchDiscoveredPlexServers: (token?: string) => Promise<PlexServerResource[]>;
   bindPlexServer: (req: { machineIdentifier?: string; name?: string; baseUrl: string; apiKey: string }) => Promise<{ success: boolean; message?: string }>;
   fetchUsers: () => Promise<void>;
   updateUserRole: (id: string, role: 'Admin' | 'Guest') => Promise<boolean>;
@@ -109,10 +109,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     }
   },
 
-  fetchDiscoveredPlexServers: async () => {
+  fetchDiscoveredPlexServers: async (token?: string) => {
     set({ isFetchingPlexServers: true });
     try {
-      const res = await fetch('/api/v1/plex/servers');
+      const url = token ? `/api/v1/plex/servers?token=${encodeURIComponent(token)}` : '/api/v1/plex/servers';
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         const servers: PlexServerResource[] = data.servers || [];

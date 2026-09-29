@@ -96,7 +96,7 @@ public class PlexEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
                 new("http://192.168.1.50:32400", "192.168.1.50", 32400, "http", true)
             })
         };
-        _mockPlexAuthService.GetDiscoveredServersAsync(Arg.Any<CancellationToken>())
+        _mockPlexAuthService.GetDiscoveredServersAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PlexServerResourceDto>>(mockServers));
 
         var res = await client.GetAsync("/api/v1/plex/servers");
@@ -146,6 +146,38 @@ public class PlexEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         status!.IsBound.Should().BeTrue();
         status.ServerName.Should().Be("Titan Media Server");
         status.MachineIdentifier.Should().Be("machine-titan-999");
+    }
+
+    [Fact]
+    public async Task GetStatus_WithExistingPlexConnection_AutoHealsBindingAndMachineIdentifier()
+    {
+        await SeedUsersAsync();
+        var client = _factory.CreateClient();
+
+        var scope = _factory.Services.CreateScope();
+        var connRepo = scope.ServiceProvider.GetRequiredService<IConnectionRepository>();
+        await connRepo.UpsertAsync(new ServiceConnection
+        {
+            Id = "conn-plex-test",
+            Name = "Living Room Plex",
+            ConnectionType = ConnectionType.Plex,
+            BaseUrl = "http://10.0.0.10:32400",
+            ApiKey = "existing-token-abc",
+            IsEnabled = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        _mockPlexAuthService.FetchMachineIdentifierAsync(Arg.Any<ServiceConnection>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<string?>("auto-healed-machine-id-777"));
+
+        var res = await client.GetAsync("/api/v1/plex/status");
+        res.StatusCode.Should().Be(HttpStatusCode.OK);
+        var status = await res.Content.ReadFromJsonAsync<PlexStatusResponse>();
+        status.Should().NotBeNull();
+        status!.IsBound.Should().BeTrue();
+        status.MachineIdentifier.Should().Be("auto-healed-machine-id-777");
+        status.HasAdminToken.Should().BeTrue();
     }
 
     private record PlexStatusResponse(

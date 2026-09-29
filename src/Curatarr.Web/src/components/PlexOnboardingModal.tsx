@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Server, CheckCircle2, AlertCircle, Loader2, X, RefreshCw } from 'lucide-react';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import { useConnectionStore } from '../stores/useConnectionStore';
+import { useAuthStore } from '../stores/useAuthStore';
 import { PlexServerResource } from '../types/api';
 
 interface PlexOnboardingModalProps {
@@ -20,6 +21,9 @@ export const PlexOnboardingModal: React.FC<PlexOnboardingModalProps> = ({ isOpen
   } = useSettingsStore();
 
   const fetchConnections = useConnectionStore((s) => s.fetchConnections);
+  const startPlexLogin = useAuthStore((s) => s.startPlexLogin);
+  const claimPlexPin = useAuthStore((s) => s.claimPlexPin);
+  const activePin = useAuthStore((s) => s.activePin);
 
   const [selectedServer, setSelectedServer] = useState<PlexServerResource | null>(null);
   const [serverName, setServerName] = useState('');
@@ -27,6 +31,7 @@ export const PlexOnboardingModal: React.FC<PlexOnboardingModalProps> = ({ isOpen
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [isManual, setIsManual] = useState(false);
+  const [isLinkingPlex, setIsLinkingPlex] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -34,6 +39,32 @@ export const PlexOnboardingModal: React.FC<PlexOnboardingModalProps> = ({ isOpen
       fetchDiscoveredPlexServers();
     }
   }, [isOpen, fetchDiscoveredPlexServers]);
+
+  // Poll for PIN claim if user triggers Plex OAuth linking inside modal
+  useEffect(() => {
+    if (!activePin) return;
+    const interval = window.setInterval(async () => {
+      const success = await claimPlexPin(activePin.id);
+      if (success) {
+        setIsLinkingPlex(false);
+        await fetchDiscoveredPlexServers();
+      }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [activePin, claimPlexPin, fetchDiscoveredPlexServers]);
+
+  const handlePlexSignIn = async () => {
+    setIsLinkingPlex(true);
+    setStatusMessage(null);
+    try {
+      const authUrl = await startPlexLogin();
+      if (authUrl) {
+        window.open(authUrl, 'plex_auth_popup', 'width=600,height=700,menubar=no,toolbar=no,location=no');
+      }
+    } catch {
+      setIsLinkingPlex(false);
+    }
+  };
 
   // When servers are fetched, auto-select the first owned server or first server
   useEffect(() => {
@@ -179,15 +210,29 @@ export const PlexOnboardingModal: React.FC<PlexOnboardingModalProps> = ({ isOpen
                   <span>Querying Plex.tv for your media servers...</span>
                 </div>
               ) : discoveredPlexServers.length === 0 ? (
-                <div className="p-5 border border-dashed border-[#14231a] rounded-xl text-center text-xs text-slate-400 bg-[#040705]/50 space-y-2">
-                  <p>No Plex Media Servers found on your Plex account.</p>
-                  <button
-                    type="button"
-                    onClick={() => setIsManual(true)}
-                    className="text-emerald-400 hover:underline font-medium"
-                  >
-                    Switch to manual configuration
-                  </button>
+                <div className="p-6 border border-dashed border-[#14231a] rounded-xl text-center text-xs text-slate-400 bg-[#040705]/50 space-y-3">
+                  <p>No Plex Media Servers discovered yet.</p>
+                  <p className="text-[11px] text-slate-500">
+                    Sign in with your Plex account to scan Plex.tv, or enter your server details manually.
+                  </p>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handlePlexSignIn}
+                      disabled={isLinkingPlex}
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isLinkingPlex && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      <span>{isLinkingPlex ? 'Waiting for Plex...' : 'Link Plex Account'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsManual(true)}
+                      className="px-3.5 py-1.5 rounded-lg border border-[#14231a] hover:border-[#1e3827] text-slate-300 font-medium transition cursor-pointer"
+                    >
+                      Enter manually
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid gap-2 max-h-48 overflow-y-auto pr-1">

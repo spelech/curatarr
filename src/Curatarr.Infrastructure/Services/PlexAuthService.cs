@@ -304,66 +304,120 @@ public class PlexAuthService : IPlexAuthService
         return new PlexClaimResult(true, finalUser, token);
     }
 
-    public async Task<IReadOnlyList<PlexServerResourceDto>> GetDiscoveredServersAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<PlexServerResourceDto>> GetDiscoveredServersAsync(string? authToken = null, CancellationToken ct = default)
     {
         var settings = await _settingsRepo.GetSettingsAsync(ct);
-        var token = settings.PlexAuthToken;
+        var token = !string.IsNullOrWhiteSpace(authToken) ? authToken.Trim() : settings.PlexAuthToken;
+
+        // Fall back to any enabled Plex connection's ApiKey if token is not yet in settings
         if (string.IsNullOrWhiteSpace(token))
         {
-            return Array.Empty<PlexServerResourceDto>();
-        }
+            var connections = await _connRepo.GetAllAsync(ct);
+            var plexConn = connections.FirstOrDefault(c => c.ConnectionType == ConnectionType.Plex && !string.IsNullOrWhiteSpace(c.ApiKey));
+            token = plexConn?.ApiKey;
 
-        var clientId = await GetOrCreateClientIdAsync(ct);
-        using var req = new HttpRequestMessage(HttpMethod.Get, "https://plex.tv/api/v2/resources?includeHttps=1");
-        req.Headers.Add("X-Plex-Token", token);
-        req.Headers.Add("X-Plex-Client-Identifier", clientId);
-        req.Headers.Add("Accept", "application/json");
-
-        using var res = await _httpClient.SendAsync(req, ct);
-        if (!res.IsSuccessStatusCode)
-        {
-            return Array.Empty<PlexServerResourceDto>();
-        }
-
-        using var stream = await res.Content.ReadAsStreamAsync(ct);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-        var servers = new List<PlexServerResourceDto>();
-
-        if (doc.RootElement.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var el in doc.RootElement.EnumerateArray())
+            if (!string.IsNullOrWhiteSpace(token))
             {
-                var provides = el.TryGetProperty("provides", out var p) ? p.GetString() : null;
-                if (provides == null || !provides.Contains("server", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
+                settings = settings with { PlexAuthToken = token };
+                await _settingsRepo.SaveSettingsAsync(settings, ct);
+            }
+        }
 
-                var name = el.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-                var clientIdentifier = el.TryGetProperty("clientIdentifier", out var ci) ? ci.GetString() ?? "" : "";
-                var owned = el.TryGetProperty("owned", out var o) && o.GetBoolean();
-                var accessToken = el.TryGetProperty("accessToken", out var at) ? at.GetString() : null;
+        var servers = new List<PlexServerResourceDto>();
+        var seenClientIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                var connections = new List<PlexServerConnectionDto>();
-                if (el.TryGetProperty("connections", out var conns) && conns.ValueKind == JsonValueKind.Array)
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            try
+            {
+                var clientId = await GetOrCreateClientIdAsync(ct);
+                using var req = new HttpRequestMessage(HttpMethod.Get, "https://plex.tv/api/v2/resources?includeHttps=1");
+                req.Headers.Add("X-Plex-Token", token);
+                req.Headers.Add("X-Plex-Client-Identifier", clientId);
+                req.Headers.Add("Accept", "application/json");
+
+                using var res = await _httpClient.SendAsync(req, ct);
+                if (res.IsSuccessStatusCode)
                 {
-                    foreach (var c in conns.EnumerateArray())
+                    using var stream = await res.Content.ReadAsStreamAsync(ct);
+                    using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
                     {
-                        var uri = c.TryGetProperty("uri", out var u) ? u.GetString() ?? "" : "";
-                        var address = c.TryGetProperty("address", out var a) ? a.GetString() ?? "" : "";
-                        var port = c.TryGetProperty("port", out var pt) ? pt.GetInt32() : 32400;
-                        var protocol = c.TryGetProperty("protocol", out var pr) ? pr.GetString() ?? "http" : "http";
-                        var local = c.TryGetProperty("local", out var l) && l.GetBoolean();
-
-                        if (!string.IsNullOrWhiteSpace(uri))
+                        foreach (var el in doc.RootElement.EnumerateArray())
                         {
-                            connections.Add(new PlexServerConnectionDto(uri, address, port, protocol, local));
+                            var provides = el.TryGetProperty("provides", out var p) ? p.GetString() : null;
+                            if (provides == null || !provides.Contains("server", StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+
+                            var name = el.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                            var clientIdentifier = el.TryGetProperty("clientIdentifier", out var ci) ? ci.GetString() ?? "" : "";
+                            var owned = el.TryGetProperty("owned", out var o) && o.GetBoolean();
+                            var accessToken = el.TryGetProperty("accessToken", out var at) ? at.GetString() : token;
+
+                            var connections = new List<PlexServerConnectionDto>();
+                            if (el.TryGetProperty("connections", out var conns) && conns.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var c in conns.EnumerateArray())
+                                {
+                                    var uri = c.TryGetProperty("uri", out var u) ? u.GetString() ?? "" : "";
+                                    var address = c.TryGetProperty("address", out var a) ? a.GetString() ?? "" : "";
+                                    var port = c.TryGetProperty("port", out var pt) ? pt.GetInt32() : 32400;
+                                    var protocol = c.TryGetProperty("protocol", out var pr) ? pr.GetString() ?? "http" : "http";
+                                    var local = c.TryGetProperty("local", out var l) && l.GetBoolean();
+
+                                    if (!string.IsNullOrWhiteSpace(uri))
+                                    {
+                                        connections.Add(new PlexServerConnectionDto(uri, address, port, protocol, local));
+                                    }
+                                }
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(clientIdentifier))
+                            {
+                                seenClientIdentifiers.Add(clientIdentifier);
+                            }
+
+                            servers.Add(new PlexServerResourceDto(name, clientIdentifier, owned, accessToken, connections));
                         }
                     }
                 }
-
-                servers.Add(new PlexServerResourceDto(name, clientIdentifier, owned, accessToken, connections));
             }
+            catch
+            {
+                // Network or Plex.tv resilience
+            }
+        }
+
+        // Also check if any configured local ServiceConnection (Plex) is reachable and not yet listed
+        try
+        {
+            var existingConns = await _connRepo.GetAllAsync(ct);
+            var localPlexConns = existingConns.Where(c => c.ConnectionType == ConnectionType.Plex && c.IsEnabled).ToList();
+            foreach (var conn in localPlexConns)
+            {
+                var machineId = await FetchMachineIdentifierAsync(conn, ct);
+                if (!string.IsNullOrWhiteSpace(machineId) && !seenClientIdentifiers.Contains(machineId))
+                {
+                    seenClientIdentifiers.Add(machineId);
+                    var cleanUrl = conn.BaseUrl.TrimEnd('/');
+                    var uri = new Uri(cleanUrl);
+                    var localConn = new PlexServerConnectionDto(cleanUrl, uri.Host, uri.Port, uri.Scheme, true);
+                    servers.Add(new PlexServerResourceDto(
+                        conn.Name,
+                        machineId,
+                        true,
+                        conn.ApiKey,
+                        new[] { localConn }
+                    ));
+                }
+            }
+        }
+        catch
+        {
+            // Non-critical local fallback
         }
 
         return servers;
@@ -435,7 +489,7 @@ public class PlexAuthService : IPlexAuthService
         }
     }
 
-    private async Task<string?> FetchMachineIdentifierAsync(ServiceConnection conn, CancellationToken ct)
+    public async Task<string?> FetchMachineIdentifierAsync(ServiceConnection conn, CancellationToken ct = default)
     {
         try
         {

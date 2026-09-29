@@ -13,15 +13,23 @@ public static class PlexEndpoints
 
         // 1. Get Discovered Servers (Admin Only)
         group.MapGet("/servers", async (
+            string? token,
             IPlexAuthService authService,
             ISettingsRepository settingsRepo,
+            IConnectionRepository connRepo,
             CancellationToken ct) =>
         {
             var settings = await settingsRepo.GetSettingsAsync(ct);
-            var servers = await authService.GetDiscoveredServersAsync(ct);
+            var servers = await authService.GetDiscoveredServersAsync(token, ct);
+            var connections = await connRepo.GetAllAsync(ct);
+            var plexConn = connections.FirstOrDefault(c => c.ConnectionType == ConnectionType.Plex && !string.IsNullOrWhiteSpace(c.ApiKey));
+            var hasAdminToken = !string.IsNullOrWhiteSpace(token) ||
+                                !string.IsNullOrWhiteSpace(settings.PlexAuthToken) ||
+                                plexConn != null;
+
             return Results.Ok(new
             {
-                hasAdminToken = !string.IsNullOrWhiteSpace(settings.PlexAuthToken),
+                hasAdminToken,
                 servers
             });
         }).RequireCuratarrRole(UserRole.Admin);
@@ -32,6 +40,7 @@ public static class PlexEndpoints
             IConnectionRepository connRepo,
             ISettingsRepository settingsRepo,
             IConnectionTester tester,
+            IPlexAuthService authService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(req.BaseUrl) || string.IsNullOrWhiteSpace(req.ApiKey))
@@ -58,6 +67,12 @@ public static class PlexEndpoints
             plexConn.IsEnabled = true;
             plexConn.UpdatedAt = DateTime.UtcNow;
 
+            // If machineId is empty, try to fetch it automatically from the connection
+            if (string.IsNullOrWhiteSpace(machineId))
+            {
+                machineId = await authService.FetchMachineIdentifierAsync(plexConn, ct) ?? string.Empty;
+            }
+
             // Test connectivity
             var testResult = await tester.TestAsync(plexConn, ct);
             if (!testResult.Success)
@@ -76,7 +91,8 @@ public static class PlexEndpoints
             var updated = settings with
             {
                 PlexServerMachineId = machineId,
-                PlexServerName = serverName
+                PlexServerName = serverName,
+                PlexAuthToken = string.IsNullOrWhiteSpace(settings.PlexAuthToken) ? req.ApiKey.Trim() : settings.PlexAuthToken
             };
             await settingsRepo.SaveSettingsAsync(updated, ct);
 
@@ -94,20 +110,37 @@ public static class PlexEndpoints
         group.MapGet("/status", async (
             IConnectionRepository connRepo,
             ISettingsRepository settingsRepo,
+            IPlexAuthService authService,
             CancellationToken ct) =>
         {
             var settings = await settingsRepo.GetSettingsAsync(ct);
             var connections = await connRepo.GetAllAsync(ct);
             var plexConn = connections.FirstOrDefault(c => c.ConnectionType == ConnectionType.Plex && c.IsEnabled);
 
-            var isBound = !string.IsNullOrWhiteSpace(settings.PlexServerMachineId) && plexConn != null;
+            // Auto-heal / migrate existing Plex connection if settings.PlexServerMachineId is not set
+            if (plexConn != null && string.IsNullOrWhiteSpace(settings.PlexServerMachineId))
+            {
+                var machineId = await authService.FetchMachineIdentifierAsync(plexConn, ct);
+                if (!string.IsNullOrWhiteSpace(machineId))
+                {
+                    settings = settings with
+                    {
+                        PlexServerMachineId = machineId,
+                        PlexServerName = string.IsNullOrWhiteSpace(settings.PlexServerName) ? plexConn.Name : settings.PlexServerName,
+                        PlexAuthToken = string.IsNullOrWhiteSpace(settings.PlexAuthToken) ? plexConn.ApiKey : settings.PlexAuthToken
+                    };
+                    await settingsRepo.SaveSettingsAsync(settings, ct);
+                }
+            }
+
+            var isBound = (!string.IsNullOrWhiteSpace(settings.PlexServerMachineId) || plexConn != null) && plexConn != null;
 
             return Results.Ok(new
             {
                 isBound,
-                serverName = settings.PlexServerName,
+                serverName = string.IsNullOrWhiteSpace(settings.PlexServerName) ? plexConn?.Name ?? "" : settings.PlexServerName,
                 machineIdentifier = settings.PlexServerMachineId,
-                hasAdminToken = !string.IsNullOrWhiteSpace(settings.PlexAuthToken),
+                hasAdminToken = !string.IsNullOrWhiteSpace(settings.PlexAuthToken) || !string.IsNullOrWhiteSpace(plexConn?.ApiKey),
                 connection = plexConn != null ? new
                 {
                     id = plexConn.Id,
