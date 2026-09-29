@@ -157,11 +157,18 @@ public class PlexAuthService : IPlexAuthService
             determinedRole = UserRole.Admin;
         }
 
-        // Verify Server Membership against configured Plex servers
+        // If user is Admin, ensure their PlexAuthToken is saved in settings for server discovery
+        if (determinedRole == UserRole.Admin && (settings.PlexAuthToken != authToken || string.IsNullOrWhiteSpace(settings.PlexAuthToken)))
+        {
+            settings = settings with { PlexAuthToken = authToken };
+            await _settingsRepo.SaveSettingsAsync(settings, ct);
+        }
+
+        // Verify Server Membership against configured Plex servers and bound machine identifier
         var connections = await _connRepo.GetAllAsync(ct);
         var plexConns = connections.Where(c => c.ConnectionType == ConnectionType.Plex && c.IsEnabled).ToList();
 
-        if (plexConns.Count > 0)
+        if (plexConns.Count > 0 || !string.IsNullOrWhiteSpace(settings.PlexServerMachineId))
         {
             bool hasServerAccess = false;
             bool isServerOwner = false;
@@ -182,6 +189,15 @@ public class PlexAuthService : IPlexAuthService
                     {
                         var targetIdentifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                         var targetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                        if (!string.IsNullOrWhiteSpace(settings.PlexServerMachineId))
+                        {
+                            targetIdentifiers.Add(settings.PlexServerMachineId.Trim());
+                        }
+                        if (!string.IsNullOrWhiteSpace(settings.PlexServerName))
+                        {
+                            targetNames.Add(settings.PlexServerName.Trim());
+                        }
 
                         foreach (var conn in plexConns)
                         {
@@ -238,6 +254,11 @@ public class PlexAuthService : IPlexAuthService
             if (isServerOwner)
             {
                 determinedRole = UserRole.Admin;
+                if (settings.PlexAuthToken != authToken)
+                {
+                    settings = settings with { PlexAuthToken = authToken };
+                    await _settingsRepo.SaveSettingsAsync(settings, ct);
+                }
             }
 
             // Reject external users who don't belong to the configured Plex server
@@ -281,6 +302,71 @@ public class PlexAuthService : IPlexAuthService
         var token = CreateSessionToken(finalUser, secret);
 
         return new PlexClaimResult(true, finalUser, token);
+    }
+
+    public async Task<IReadOnlyList<PlexServerResourceDto>> GetDiscoveredServersAsync(CancellationToken ct = default)
+    {
+        var settings = await _settingsRepo.GetSettingsAsync(ct);
+        var token = settings.PlexAuthToken;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return Array.Empty<PlexServerResourceDto>();
+        }
+
+        var clientId = await GetOrCreateClientIdAsync(ct);
+        using var req = new HttpRequestMessage(HttpMethod.Get, "https://plex.tv/api/v2/resources?includeHttps=1");
+        req.Headers.Add("X-Plex-Token", token);
+        req.Headers.Add("X-Plex-Client-Identifier", clientId);
+        req.Headers.Add("Accept", "application/json");
+
+        using var res = await _httpClient.SendAsync(req, ct);
+        if (!res.IsSuccessStatusCode)
+        {
+            return Array.Empty<PlexServerResourceDto>();
+        }
+
+        using var stream = await res.Content.ReadAsStreamAsync(ct);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+        var servers = new List<PlexServerResourceDto>();
+
+        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                var provides = el.TryGetProperty("provides", out var p) ? p.GetString() : null;
+                if (provides == null || !provides.Contains("server", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var name = el.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+                var clientIdentifier = el.TryGetProperty("clientIdentifier", out var ci) ? ci.GetString() ?? "" : "";
+                var owned = el.TryGetProperty("owned", out var o) && o.GetBoolean();
+                var accessToken = el.TryGetProperty("accessToken", out var at) ? at.GetString() : null;
+
+                var connections = new List<PlexServerConnectionDto>();
+                if (el.TryGetProperty("connections", out var conns) && conns.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var c in conns.EnumerateArray())
+                    {
+                        var uri = c.TryGetProperty("uri", out var u) ? u.GetString() ?? "" : "";
+                        var address = c.TryGetProperty("address", out var a) ? a.GetString() ?? "" : "";
+                        var port = c.TryGetProperty("port", out var pt) ? pt.GetInt32() : 32400;
+                        var protocol = c.TryGetProperty("protocol", out var pr) ? pr.GetString() ?? "http" : "http";
+                        var local = c.TryGetProperty("local", out var l) && l.GetBoolean();
+
+                        if (!string.IsNullOrWhiteSpace(uri))
+                        {
+                            connections.Add(new PlexServerConnectionDto(uri, address, port, protocol, local));
+                        }
+                    }
+                }
+
+                servers.Add(new PlexServerResourceDto(name, clientIdentifier, owned, accessToken, connections));
+            }
+        }
+
+        return servers;
     }
 
     public string CreateSessionToken(User user, string secret)

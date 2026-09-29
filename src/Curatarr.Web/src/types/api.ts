@@ -170,6 +170,9 @@ export interface CuratarrSettings {
   seriesEpisodeSpaceHogGb: number;
   authEnabled?: boolean;
   adminUsernames?: string;
+  plexAuthToken?: string;
+  plexServerMachineId?: string;
+  plexServerName?: string;
 }
 
 export interface QualityProfile {
@@ -189,5 +192,40 @@ export interface UpgradeQualityResult {
   externalId?: number;
   qualityProfileName?: string;
   searchTriggered: boolean;
+}
+
+export interface PlexServerConnection {
+  uri: string;
+  address: string;
+  port: number;
+  protocol: string;
+  local: boolean;
+}
+
+export interface PlexServerResource {
+  name: string;
+  clientIdentifier: string;
+  owned: boolean;
+  accessToken?: string | null;
+  connections: PlexServerConnection[];
+}
+
+export interface PlexBindingStatus {
+  isBound: boolean;
+  serverName?: string | null;
+  machineIdentifier?: string | null;
+  hasAdminToken: boolean;
+  connection?: ServiceConnection | null;
+}
+
+export interface ManagedUser {
+  id: string;
+  plexId: string;
+  username: string;
+  email?: string | null;
+  thumbUrl?: string | null;
+  role: 'Admin' | 'Guest';
+  createdAt: string;
+  updatedAt: string;
 }
 

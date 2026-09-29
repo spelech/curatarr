@@ -71,13 +71,24 @@ info: Microsoft.Hosting.Lifetime[0]
 
 ---
 
-## First Run and Initial Login
-
-1. Open your web browser and navigate to:
-   ```
-   http://localhost:8909
-   ```
-2. If authentication is enabled, click **Sign In with Plex** to link your administrator account.
-3. Once logged in, click **Settings & Rules** in the left sidebar to add your media service connections.
+## First Run & Overseerr-Style Setup
+ 
+ 1. Open your web browser and navigate to:
+    ```
+    http://localhost:8909
+    ```
+ 2. **Claim Admin Account**:
+    - Click **Sign In with Plex** to initiate the standard Plex PIN authentication flow.
+    - Authorize Curatarr in your Plex account. The first user to complete this step is registered as the primary **Admin**.
+ 3. **Plex Server Discovery & Binding**:
+    - Upon admin login, Curatarr queries Plex.tv for all servers owned by or shared with your account and presents the setup wizard.
+    - Choose your primary Plex Media Server from the dropdown. Curatarr automatically populates the server name, machine identifier, and secure connection URLs.
+    - Click **Test & Bind Server** to verify communication and persist the binding.
+ 4. **Connect Media Instances**:
+    - Navigate to **Settings** -> **Arr Connections**.
+    - Add your Radarr and Sonarr instances (or click **Auto-Discover Local Services**).
+    - Note: Tautulli and Overseerr are completely optional companions. Curatarr correlates watch activity directly from your Plex Media Server out of the box.
+ 5. **Run Initial Library Sync**:
+    - Click **Sync Now** in the top navigation bar to trigger your first library scan and populate all smart categories.
 
 ![Curatarr Grid Interface](../assets/screenshots/curatarr-grid-view.png)

@@ -27,6 +27,11 @@ public record CuratarrSettings
     public string PlexClientId { get; init; } = string.Empty;
     public string SessionSecret { get; init; } = string.Empty;
 
+    // Bound Plex Media Server details (Overseerr-style binding)
+    public string PlexAuthToken { get; init; } = string.Empty;
+    public string PlexServerMachineId { get; init; } = string.Empty;
+    public string PlexServerName { get; init; } = string.Empty;
+
     // Helper conversion properties for API serialization
     public double MovieSpaceHogGb
     {

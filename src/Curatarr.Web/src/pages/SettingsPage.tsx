@@ -10,13 +10,19 @@ import {
   Sparkles,
   SlidersHorizontal,
   Pencil,
+  Server,
+  Users,
 } from 'lucide-react';
 import { useConnectionStore } from '../stores/useConnectionStore';
 import { DiscoveredService, ServiceConnection } from '../types/api';
 import { ThresholdSettingsTab } from '../components/ThresholdSettingsTab';
+import { PlexSettingsTab } from '../components/PlexSettingsTab';
+import { UserManagementTab } from '../components/UserManagementTab';
+
+type SettingsTab = 'plex' | 'connections' | 'thresholds' | 'users';
 
 export const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'connections' | 'thresholds'>('connections');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('plex');
   const {
     connections,
     fetchConnections,
@@ -71,6 +77,9 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  // Separate Arr/utility connections from Plex (which is managed under the Plex & Auth tab)
+  const arrConnections = connections.filter((c) => c.connectionType !== 3);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Banner / Hero */}
@@ -85,29 +94,41 @@ export const SettingsPage: React.FC = () => {
                 Settings & Governance Rules
               </h1>
               <p className="text-xs text-slate-400 mt-1">
-                Configure Arr media servers, Plex/Tautulli activity watchers, and retention rule thresholds.
+                Overseerr-style Plex binding, Arr instances, user roles, and retention criteria.
               </p>
             </div>
           </div>
 
-          {/* Tab Switcher */}
-          <div className="flex items-center bg-[#040705] border border-[#14231a] rounded-xl p-1 shrink-0">
+          {/* 4-Tab Switcher */}
+          <div className="flex items-center bg-[#040705] border border-[#14231a] rounded-xl p-1 shrink-0 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setActiveTab('plex')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
+                activeTab === 'plex'
+                  ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Server className="w-3.5 h-3.5" />
+              <span>Plex & Auth</span>
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab('connections')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
                 activeTab === 'connections'
                   ? 'bg-emerald-500 text-black font-bold shadow-sm'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <Radio className="w-3.5 h-3.5" />
-              <span>Service Connections</span>
+              <span>Arr Connections</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('thresholds')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
                 activeTab === 'thresholds'
                   ? 'bg-emerald-500 text-black font-bold shadow-sm'
                   : 'text-slate-400 hover:text-white'
@@ -116,15 +137,31 @@ export const SettingsPage: React.FC = () => {
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Rules & Thresholds</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('users')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
+                activeTab === 'users'
+                  ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Users</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main Tab Content */}
-      {activeTab === 'thresholds' ? (
+      {activeTab === 'plex' ? (
+        <PlexSettingsTab />
+      ) : activeTab === 'thresholds' ? (
         <div className="bg-[#070c09] border border-[#14231a] rounded-2xl p-6 shadow-sm">
           <ThresholdSettingsTab />
         </div>
+      ) : activeTab === 'users' ? (
+        <UserManagementTab />
       ) : (
         <div className="space-y-6">
           {/* Top Actions: Add New & Auto Discover */}
@@ -134,7 +171,7 @@ export const SettingsPage: React.FC = () => {
                 type="button"
                 onClick={handleScan}
                 disabled={isScanning}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#070c09] hover:bg-[#0f1a14] text-emerald-400 border border-[#14231a] hover:border-emerald-500/40 transition flex items-center gap-2 disabled:opacity-50 min-h-[34px]"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#070c09] hover:bg-[#0f1a14] text-emerald-400 border border-[#14231a] hover:border-emerald-500/40 transition flex items-center gap-2 disabled:opacity-50 min-h-[34px] cursor-pointer"
               >
                 {isScanning ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -157,7 +194,7 @@ export const SettingsPage: React.FC = () => {
                   isEnabled: true,
                 })
               }
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition flex items-center gap-1.5 shadow-sm min-h-[34px]"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition flex items-center gap-1.5 shadow-sm min-h-[34px] cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add Connection</span>
@@ -204,7 +241,7 @@ export const SettingsPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleAddDiscovered(svc)}
-                        className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-md font-semibold text-xs transition"
+                        className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-md font-semibold text-xs transition cursor-pointer"
                       >
                         Use
                       </button>
@@ -227,8 +264,9 @@ export const SettingsPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="text-slate-400 block mb-1">Service Type</label>
+                  <label htmlFor="conn-type-select" className="text-slate-400 block mb-1">Service Type</label>
                   <select
+                    id="conn-type-select"
                     value={editingConn.connectionType ?? 0}
                     onChange={(e) =>
                       setEditingConn({ ...editingConn, connectionType: parseInt(e.target.value) })
@@ -238,14 +276,17 @@ export const SettingsPage: React.FC = () => {
                     <option value={0}>Sonarr</option>
                     <option value={1}>Radarr</option>
                     <option value={2}>Tautulli</option>
-                    <option value={3}>Plex Media Server</option>
                     <option value={4}>Overseerr / Jellyseerr</option>
                   </select>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Plex Media Server is bound and configured in the <strong>Plex & Auth</strong> tab.
+                  </p>
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1">Friendly Name</label>
+                  <label htmlFor="conn-name-input" className="text-slate-400 block mb-1">Friendly Name</label>
                   <input
+                    id="conn-name-input"
                     type="text"
                     required
                     value={editingConn.name || ''}
@@ -258,8 +299,9 @@ export const SettingsPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="text-slate-400 block mb-1">Base URL</label>
+                  <label htmlFor="conn-url-input" className="text-slate-400 block mb-1">Base URL</label>
                   <input
+                    id="conn-url-input"
                     type="url"
                     required
                     value={editingConn.baseUrl || ''}
@@ -270,23 +312,25 @@ export const SettingsPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-slate-400 block mb-1">API Key / Token</label>
+                  <label htmlFor="conn-key-input" className="text-slate-400 block mb-1">API Key / Token</label>
                   <input
+                    id="conn-key-input"
                     type="password"
                     required
                     value={editingConn.apiKey || ''}
                     onChange={(e) => setEditingConn({ ...editingConn, apiKey: e.target.value })}
-                    placeholder="API Key or Plex Token"
+                    placeholder="API Key"
                     className="w-full bg-[#040705] border border-[#14231a] rounded-lg p-2.5 text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1">
+                <label htmlFor="conn-tier-input" className="text-slate-400 block mb-1">
                   Tier / Tag Label (e.g. HD, 4K, Anime)
                 </label>
                 <input
+                  id="conn-tier-input"
                   type="text"
                   value={editingConn.tierTag || ''}
                   onChange={(e) => setEditingConn({ ...editingConn, tierTag: e.target.value })}
@@ -299,13 +343,13 @@ export const SettingsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setEditingConn(null)}
-                  className="px-4 py-2 rounded-lg bg-[#040705] border border-[#14231a] text-slate-300 hover:text-white hover:bg-[#0f1a14] transition"
+                  className="px-4 py-2 rounded-lg bg-[#040705] border border-[#14231a] text-slate-300 hover:text-white hover:bg-[#0f1a14] transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold transition shadow-sm"
+                  className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold transition shadow-sm cursor-pointer"
                 >
                   Save Connection
                 </button>
@@ -313,17 +357,17 @@ export const SettingsPage: React.FC = () => {
             </form>
           )}
 
-          {/* Active Connections List */}
+          {/* Active Arr Connections List */}
           <div className="space-y-3">
-            <h2 className="text-sm font-bold text-white">Configured Service Connections</h2>
+            <h2 className="text-sm font-bold text-white">Configured Arr & Utility Connections</h2>
 
-            {connections.length === 0 ? (
+            {arrConnections.length === 0 ? (
               <div className="border border-dashed border-[#17261e] rounded-2xl p-12 text-center text-slate-400 text-xs bg-[#070c09]/40">
-                No connections configured yet. Use "Auto-Discover" or click "Add Connection" to connect your Arr, Plex, or Overseerr instances.
+                No Arr connections configured yet. Use "Auto-Discover" or click "Add Connection" to connect Sonarr, Radarr, Tautulli, or Overseerr.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {connections.map((conn) => {
+                {arrConnections.map((conn) => {
                   const testRes = testResults[conn.id];
                   return (
                     <div
@@ -350,7 +394,8 @@ export const SettingsPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setEditingConn(conn)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#0f1a14] border border-transparent transition"
+                            aria-label={`Edit ${conn.name}`}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#0f1a14] border border-transparent transition cursor-pointer"
                             title="Edit connection"
                           >
                             <Pencil className="w-4 h-4" />
@@ -358,7 +403,8 @@ export const SettingsPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => deleteConnection(conn.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent transition"
+                            aria-label={`Delete ${conn.name}`}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent transition cursor-pointer"
                             title="Delete connection"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -377,7 +423,7 @@ export const SettingsPage: React.FC = () => {
                               )}
                               <span
                                 className={`text-[11px] font-medium ${
-                                  testRes.success ? 'text-emerald-400' : 'text-rose-400'
+                                   testRes.success ? 'text-emerald-400' : 'text-rose-400'
                                 }`}
                               >
                                 {testRes.message}
@@ -389,7 +435,7 @@ export const SettingsPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => testConnection(conn)}
-                          className="px-3 py-1 bg-[#040705] hover:bg-[#0f1a14] border border-[#14231a] hover:border-emerald-500/40 text-slate-300 hover:text-emerald-300 rounded-lg font-semibold text-xs transition"
+                          className="px-3 py-1 bg-[#040705] hover:bg-[#0f1a14] border border-[#14231a] hover:border-emerald-500/40 text-slate-300 hover:text-emerald-300 rounded-lg font-semibold text-xs transition cursor-pointer"
                         >
                           Test Connection
                         </button>

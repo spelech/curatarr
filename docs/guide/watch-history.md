@@ -4,6 +4,15 @@ Curatarr integrates with Plex Media Server and Tautulli to correlate viewing act
 
 ---
 
+## Standalone Plex vs. Tautulli Telemetry
+
+Curatarr is engineered to operate completely standalone or enhanced with Tautulli:
+
+- **Standalone Plex Mode**: Curatarr queries Plex library section endpoints directly. It ingests native `viewCount` and `lastViewedAt` timestamps per item. This provides full coverage for smart categories (Never Watched, Stale, Abandoned TV) without needing Tautulli or any external companion software.
+- **Enhanced Tautulli Mode**: When Tautulli is configured, Curatarr supplements Plex's global activity with Tautulli's granular per-user stream history, play durations, and individual user playback timestamps.
+
+---
+
 ## The Pre-Tracking History Problem
 
 Home media servers often run for years before logging tools like Tautulli or Plex activity tracking are installed.
