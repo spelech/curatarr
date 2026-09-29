@@ -23,6 +23,7 @@ import { QualityUpgradeModal } from './components/QualityUpgradeModal';
 import { CategoryCriteriaModal } from './components/CategoryCriteriaModal';
 import { ProtectionRequestsModal } from './components/ProtectionRequestsModal';
 import { LoginModal } from './components/LoginModal';
+import { PlexOnboardingModal } from './components/PlexOnboardingModal';
 import { ToastContainer } from './components/ToastContainer';
 import { MediaItem } from './types/api';
 
@@ -57,6 +58,8 @@ export default function App() {
   const fetchConnections = useConnectionStore((state) => state.fetchConnections);
 
   const fetchSettings = useSettingsStore((state) => state.fetchSettings);
+  const plexStatus = useSettingsStore((state) => state.plexStatus);
+  const fetchPlexStatus = useSettingsStore((state) => state.fetchPlexStatus);
 
   const user = useAuthStore((state) => state.user);
   const isPreviewingAsGuest = useAuthStore((state) => state.isPreviewingAsGuest);
@@ -67,6 +70,7 @@ export default function App() {
   const addToast = useToastStore((state) => state.addToast);
   const removeToast = useToastStore((state) => state.removeToast);
 
+  const [isOnboardingDismissed, setIsOnboardingDismissed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>('curation');
@@ -125,7 +129,8 @@ export default function App() {
     fetchItems();
     fetchConnections();
     fetchSettings();
-  }, [checkAuth, fetchCategories, fetchUsers, fetchItems, fetchConnections, fetchSettings]);
+    fetchPlexStatus();
+  }, [checkAuth, fetchCategories, fetchUsers, fetchItems, fetchConnections, fetchSettings, fetchPlexStatus]);
 
   const selectedItems = items.filter((i) => selectedIds.has(i.id));
 
@@ -443,6 +448,14 @@ export default function App() {
 
       {/* Plex Auth Login Modal */}
       <LoginModal />
+
+      {/* Overseerr-style Plex Server Onboarding Wizard */}
+      {!isGuest && user?.role === 'Admin' && plexStatus !== null && !plexStatus.isBound && (
+        <PlexOnboardingModal
+          isOpen={!isOnboardingDismissed}
+          onClose={() => setIsOnboardingDismissed(true)}
+        />
+      )}
 
       {/* Toast Notifications */}
       <ToastContainer />

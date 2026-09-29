@@ -240,6 +240,7 @@ app.MapConnectionEndpoints();
 app.MapSettingsEndpoints();
 app.MapPruneAndSyncEndpoints();
 app.MapDiscoveryEndpoints();
+app.MapPlexEndpoints();
 
 // SPA Fallback for React UI
 app.MapFallbackToFile("index.html");
