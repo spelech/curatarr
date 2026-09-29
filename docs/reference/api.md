@@ -22,6 +22,43 @@ Returns the active session state and user identity.
   }
   ```
 
+### `GET /api/v1/auth/users` (Admin)
+Returns all registered Plex users with assigned roles.
+
+### `PUT /api/v1/auth/users/{id}/role` (Admin)
+Updates a user's permission role.
+- **Request Body**:
+  ```json
+  {
+    "role": "Admin"
+  }
+  ```
+
+### `DELETE /api/v1/auth/users/{id}` (Admin)
+Deletes a registered user from Curatarr.
+
+---
+
+## Plex Media Server Binding
+
+### `GET /api/v1/plex/status`
+Returns the current Plex binding state, machine identifier, and connection health.
+
+### `GET /api/v1/plex/servers` (Admin)
+Queries Plex.tv for all servers accessible to the administrator's token.
+
+### `POST /api/v1/plex/bind` (Admin)
+Binds Curatarr to a specific Plex Media Server and verifies network connectivity.
+- **Request Body**:
+  ```json
+  {
+    "machineIdentifier": "abcdef123456...",
+    "name": "Tower Plex",
+    "baseUrl": "http://10.0.0.10:32400",
+    "apiKey": "plex-auth-token"
+  }
+  ```
+
 ---
 
 ## Catalog & Categories

@@ -34,13 +34,16 @@ Curatarr protects against accidental data loss. It requires user confirmation fo
 ### 1. Multi-Instance Media Server Support
 Curatarr connects to multiple Sonarr and Radarr servers at the same time. You can manage separate instances for High Definition (HD), 4K Ultra-HD, and Anime libraries in one interface.
 
-### 2. Watch Activity Correlation
-Curatarr imports watch records from Plex Media Server and Tautulli. You can analyze viewing habits across the whole server or filter records by specific household users.
+### 2. Overseerr-Style Plex Server & Admin Binding
+When you first launch Curatarr, sign in with your Plex account to claim the primary administrator account. Curatarr queries Plex.tv for your owned and shared media servers, allowing you to select and bind your server with one click—no manual extraction of X-Plex-Tokens or machine identifiers needed.
 
-### 3. Dynamic Watch History Cutoff
+### 3. Standalone Watch Activity Correlation
+Curatarr works standalone with Plex Media Server and your Arr instances. Tautulli and Overseerr are completely optional companions. Without Tautulli, Curatarr uses Plex's native library watch records and play counts to drive all smart cleanup categories. When Tautulli is connected, it imports extended historical telemetry.
+
+### 4. Dynamic Watch History Cutoff
 Users start tracking watch history at different dates. Curatarr calculates the earliest recorded watch date for each user. If an item was added before tracking began and has zero plays, Curatarr adds a `Pre-YYYY` badge. This badge prevents the system from reporting old media as unplayed by mistake.
 
-### 4. Smart Categories
+### 5. Smart Categories
 The system groups media into automatic categories:
 - **Never Watched**: Items in the library for more than 90 days with zero plays.
 - **Stale (>365d)**: Items not watched during the previous 365 days.
@@ -50,29 +53,29 @@ The system groups media into automatic categories:
 - **Space Hogs**: The largest media items on disk.
 - **Missing / Stalled**: Monitored items that have no files on disk.
 
-### 5. Granular Deletion Controls
+### 6. Granular Deletion Controls
 When you remove media, you can select exact targets:
 - Delete an entire movie across all instances.
 - Delete a movie from one specific instance (for example, remove 4K but keep HD).
 - Delete an entire television series.
 - Delete specific television seasons while keeping newer episodes.
 
-### 6. Whitelist Protection and Guest Requests
+### 7. Whitelist Protection and Guest Requests
 Administrators can protect items from deletion. Protected items display a green shield badge and cannot be pruned. Guest users can browse the library and submit protection requests with written reasons. Administrators review, approve, or dismiss these requests.
 
-### 7. In-App Quality Profile Upgrades
+### 8. In-App Quality Profile Upgrades
 You can trigger quality upgrades directly inside Curatarr. The system contacts Sonarr or Radarr to search for better releases and replace low-quality files.
 
-### 8. Overseerr and Jellyseerr Integration
+### 9. Overseerr and Jellyseerr Integration
 Curatarr links to Overseerr or Jellyseerr. You can filter the library by the user who requested the item. This feature allows administrators to contact requesters before deleting items.
 
-### 9. Import Exclusion Automation
+### 10. Import Exclusion Automation
 When you delete an item, you can add it to the Arr import exclusion list. This step stops Sonarr and Radarr from downloading the deleted item again.
 
-### 10. Forensic Audit Log
+### 11. Forensic Audit Log
 Curatarr records all deletion actions in an SQLite audit ledger. The log includes the media title, affected Arr instances, exact disk paths, reclaimed bytes, timestamps, and the user name of the actor.
 
-### 11. Model Context Protocol (MCP) Server
+### 12. Model Context Protocol (MCP) Server
 Curatarr includes an embedded MCP server (`/mcp/sse` and `/mcp/messages`). Autonomous AI coding assistants can query library statistics, list candidate items for pruning, and execute safe deletions through standard MCP tools.
 
 ---
@@ -104,8 +107,12 @@ The audit page displays all file deletions and calculates total reclaimed disk s
 
 ![Forensic Audit Log](docs/assets/screenshots/curatarr-audit-view.png)
 
-### Service Connections Settings
-Configure URLs and API keys for Sonarr, Radarr, Plex, Tautulli, and Overseerr. You can test connection health with one click.
+### Settings & Configuration Tabs
+The settings interface is organized into four purpose-built tabs:
+- **Plex & Auth**: Displays active Plex server binding status, machine identifier, connection test, re-scan discovery, and Plex authentication enforcement.
+- **Arr Connections**: Manage multiple Sonarr and Radarr instances with individual quality tiers (HD, 4K, Anime), connection tests, and one-click Docker service discovery.
+- **Rules & Thresholds**: Configure age cutoffs, inactivity limits, and default deletion policies for smart categories.
+- **Users**: Manage Plex users, assign `Admin` or `Guest` permissions, and remove inactive accounts.
 
 ![Service Connections Settings](docs/assets/screenshots/curatarr-settings-view.png)
 
@@ -198,16 +205,14 @@ Curatarr uses a modern two-tier architecture:
 
 ## Configuration
 
-1. Log in to Curatarr with your administrative account or local session.
-2. Click **Settings & Rules** in the left navigation sidebar.
-3. In **Service Connections**, add your servers:
-   - **Radarr**: Enter the base URL and API key. Select the quality tier (HD or 4K).
-   - **Sonarr**: Enter the base URL and API key. Select the quality tier (HD, 4K, or Anime).
-   - **Plex Media Server**: Enter the local URL and Plex authentication token.
-   - **Tautulli**: Enter the Tautulli URL and API key.
-   - **Overseerr**: Enter the Overseerr URL and API key.
-4. Click **Test Connection** on each service card to verify network connectivity.
-5. Click **Sync Now** to start the initial library synchronization.
+1. **Sign In & Claim Admin**: On first visit, sign in with your Plex account. The first registered user automatically becomes the primary Curatarr administrator.
+2. **Plex Server Binding**: An Overseerr-style setup modal will appear. Curatarr queries Plex.tv for your servers. Select your media server from the dropdown, verify the local connection URL, and click **Bind & Save**.
+3. **Configure Arr Instances**: In **Settings** -> **Arr Connections**, add your Radarr and Sonarr servers (or click **Auto-Discover Local Services** if running on the same Docker network).
+4. **Optional Companions**:
+   - Curatarr operates standalone with Plex native library play counts.
+   - If you use **Tautulli**, add it under **Arr Connections** for extended historical telemetry.
+   - If you use **Overseerr** or **Jellyseerr**, add it to map requester identities to library items.
+5. **Initial Sync**: Click **Sync Now** in the top navigation bar to populate your catalog and calculate smart categories.
 
 ---
 
