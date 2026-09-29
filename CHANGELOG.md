@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-09-28
+
+### Added
+- **Overseerr-Style Plex Server & Admin Binding**:
+  - Seamless first-run onboarding setup wizard modal (`PlexOnboardingModal`) automatically querying Plex.tv for all owned and shared servers.
+  - One-click server selection and binding with automatic connectivity testing and machine identifier persistence.
+  - Dedicated Plex & Auth settings tab with machine identifier diagnostics, re-scan discovery, and authentication enforcement.
+- **Arr-Grade v2 UI Refresh**:
+  - Complete emerald & obsidian dark theme tokens with polished typography, glowing status indicators, and clean contrast.
+  - Full-screen dedicated views for Settings, Whitelist Management, and Forensic Audit Log.
+  - Authentic curated film cell logo and favicon branding.
+  - Default Table / List view with local storage persistence and responsive controls.
+- **Standalone Watch Activity Correlation**:
+  - Full standalone operation with native Plex library play counts and timestamps (`viewCount`, `lastViewedAt`).
+  - No external companion software required; Tautulli and Overseerr/Jellyseerr remain optional enhancements.
+- **Dynamic Era Cutoff (`Pre-YYYY`)**:
+  - Per-user historical calculation identifying the earliest recorded watch date.
+  - Prevents false "Never Watched" deletion flags on classic favorite movies added before tracking began.
+- **Quality Profile Upgrades**:
+  - Direct in-app trigger in Cutoff Unmet category to command Sonarr/Radarr to search and download better releases.
+- **4-Tab Organized Settings**:
+  - Structured into Plex & Auth, Arr Connections, Rules & Thresholds, and Plex User Management with role controls (`Admin` / `Guest`).
+- **Comprehensive Documentation & Repository Governance**:
+  - VitePress documentation deployed to GitHub Pages (`https://spelech.github.io/curatarr/`).
+  - Grouped Dependabot updates across NuGet, npm, Docker, and GitHub Actions.
+  - Interactive GitHub Issue forms.
+
 ## [1.5.0] - 2026-09-26
 
 ### Added
