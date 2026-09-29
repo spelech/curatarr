@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Curatarr Documentation
+    url: https://spelech.github.io/curatarr/
+    about: Official documentation, setup guides, and API / MCP reference.
+  - name: GitHub Discussions
+    url: https://github.com/spelech/curatarr/discussions
+    about: Ask questions, share homelab configurations, and discuss ideas with the community.

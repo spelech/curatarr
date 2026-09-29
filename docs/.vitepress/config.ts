@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress';
 
 export default defineConfig({
+  base: '/curatarr/',
   title: 'Curatarr',
   description: 'Intelligent Media Library Auditing and Decluttering Platform',
   head: [
